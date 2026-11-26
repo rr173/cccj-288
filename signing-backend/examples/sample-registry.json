@@ -1,0 +1,62 @@
+{
+  "accounts": [
+    {
+      "account_id": "alice",
+      "public_key_b64": "XjBnIE+DC4CZndwYaTiZ6rJjK14/SS0VnWCijxcN16A=",
+      "display_name": null,
+      "created_at": "2026-11-26T02:52:59.778352Z"
+    },
+    {
+      "account_id": "bob",
+      "public_key_b64": "5ZKoWTHh6zUm523cCm7FwzvaiZZzQ4ZvBCPVt3m87RI=",
+      "display_name": null,
+      "created_at": "2026-11-26T02:52:59.788826Z"
+    },
+    {
+      "account_id": "cancel_user",
+      "public_key_b64": "8f5zXsjkwatFGbiUC9RWODOipss7DpUoEyf0lZMlgQY=",
+      "display_name": null,
+      "created_at": "2026-11-26T02:52:59.843606Z"
+    },
+    {
+      "account_id": "carol",
+      "public_key_b64": "HBPL8xCBxngCBDs+ZviqoYjenXzKoCohaRy/g+xkHyo=",
+      "display_name": null,
+      "created_at": "2026-11-26T02:52:59.798037Z"
+    },
+    {
+      "account_id": "dave",
+      "public_key_b64": "JPUKX/1+nlcAr9LKzgHFLRhxq3yaPSStB/CFsm1PfZU=",
+      "display_name": null,
+      "created_at": "2026-11-26T02:52:59.806169Z"
+    },
+    {
+      "account_id": "delegate_a",
+      "public_key_b64": "8Kz0/uBkPxHNQ/FbO+y8R2HOEwZF+IaXJegpcoloT5U=",
+      "display_name": null,
+      "created_at": "2026-11-26T02:52:59.825256Z"
+    },
+    {
+      "account_id": "delegate_b",
+      "public_key_b64": "QU3R4RSBihihTjJYn3XxW6kdHdorefoDaxI0AZmYfa0=",
+      "display_name": null,
+      "created_at": "2026-11-26T02:52:59.833468Z"
+    },
+    {
+      "account_id": "owner",
+      "public_key_b64": "qKyaDhnJaHON6hE3MuajDbVDdY0CZQTBPWPZnhKRgL0=",
+      "display_name": null,
+      "created_at": "2026-11-26T02:52:59.814939Z"
+    }
+  ],
+  "public_keys": {
+    "alice": "XjBnIE+DC4CZndwYaTiZ6rJjK14/SS0VnWCijxcN16A=",
+    "bob": "5ZKoWTHh6zUm523cCm7FwzvaiZZzQ4ZvBCPVt3m87RI=",
+    "cancel_user": "8f5zXsjkwatFGbiUC9RWODOipss7DpUoEyf0lZMlgQY=",
+    "carol": "HBPL8xCBxngCBDs+ZviqoYjenXzKoCohaRy/g+xkHyo=",
+    "dave": "JPUKX/1+nlcAr9LKzgHFLRhxq3yaPSStB/CFsm1PfZU=",
+    "delegate_a": "8Kz0/uBkPxHNQ/FbO+y8R2HOEwZF+IaXJegpcoloT5U=",
+    "delegate_b": "QU3R4RSBihihTjJYn3XxW6kdHdorefoDaxI0AZmYfa0=",
+    "owner": "qKyaDhnJaHON6hE3MuajDbVDdY0CZQTBPWPZnhKRgL0="
+  }
+}

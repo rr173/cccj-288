@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local runtime data and generated demo artifacts
+data/*.db
+data/*.db-wal
+data/*.db-shm
+demo-artifacts/
+keys/
+
+# Keep empty data directory if desired
+!data/.gitkeep

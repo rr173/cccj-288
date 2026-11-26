@@ -1,0 +1,245 @@
+{
+  "agreement_id": "agr_984c36556f9845adb9fa4811ba50a138",
+  "body": {
+    "byte_length": 91,
+    "data": "5aeU5omY6ZO+5ryU56S65Y2P6K6uIGY0YjA0NzVjYzAK5pys5Y2P6K6u55So5LqO6L+e57ut5aeU5omY44CB5pKk6ZSA5ZKM5pen5oyR5oiY6YeN5pS+44CCCg==",
+    "encoding": "base64",
+    "sha256": "sha256:6819751f2ef7334ddbc6e9333b65915539103a44d6b754c2f5e1c34efb8b38cc"
+  },
+  "certificate_hash": "sha256:77d9e42a89d37d0e90ca47862bff7a9b9fcb5eb3ee269c7b4c9c22448c75dd3c",
+  "certificate_id": "cert_d9477b829f124e5e9e6c947d1cc9e2ed",
+  "completed_at": "2026-11-26T02:53:00.247586Z",
+  "created_at": "2026-11-26T02:53:00.080299Z",
+  "initiator_account_id": "initiator-2",
+  "schema": "multi-party-agreement-signed-certificate/v1",
+  "seats": [
+    {
+      "actual_signer_account_id": "delegate_a",
+      "completed_at": "2026-11-26T02:53:00.247283Z",
+      "label": null,
+      "original_account_id": "owner",
+      "position": 1,
+      "seat_id": "seat_3b230f9196b343568ffec07d3a9ea663",
+      "seat_key": "delegated-seat",
+      "signature": {
+        "actual_signer_account_id": "delegate_a",
+        "authority_generation": 4,
+        "body_sha256": "sha256:6819751f2ef7334ddbc6e9333b65915539103a44d6b754c2f5e1c34efb8b38cc",
+        "challenge": {
+          "agreement_id": "agr_984c36556f9845adb9fa4811ba50a138",
+          "authority": {
+            "active_chain": [
+              {
+                "created_at": "2026-11-26T02:53:00.199179Z",
+                "delegatee_account_id": "delegate_a",
+                "delegation_id": "del_ec6bbb03b47f4e6d8499e117dcffbfd4",
+                "delegator_account_id": "owner",
+                "parent_delegation_id": null,
+                "seq": 1
+              }
+            ],
+            "authority_basis": "DELEGATION",
+            "authority_generation": 4,
+            "current_account_id": "delegate_a",
+            "delegation_history": [
+              {
+                "created_at": "2026-11-26T02:53:00.106474Z",
+                "delegatee_account_id": "delegate_a",
+                "delegation_id": "del_2ca28d543e1c460485cc410766781f97",
+                "delegator_account_id": "owner",
+                "operation_id": "del-owner-a-f4b0475cc0",
+                "parent_delegation_id": null,
+                "revocation_id": "rev_fe527331797948cdb9aa5738ff149752",
+                "revoked_at": "2026-11-26T02:53:00.190405Z",
+                "seq": 1
+              },
+              {
+                "created_at": "2026-11-26T02:53:00.129873Z",
+                "delegatee_account_id": "delegate_b",
+                "delegation_id": "del_ff35d27901594c7190bf6d725a8c58b1",
+                "delegator_account_id": "delegate_a",
+                "operation_id": "del-a-b-f4b0475cc0",
+                "parent_delegation_id": "del_2ca28d543e1c460485cc410766781f97",
+                "revocation_id": "rev_fe527331797948cdb9aa5738ff149752",
+                "revoked_at": "2026-11-26T02:53:00.190405Z",
+                "seq": 2
+              },
+              {
+                "created_at": "2026-11-26T02:53:00.199179Z",
+                "delegatee_account_id": "delegate_a",
+                "delegation_id": "del_ec6bbb03b47f4e6d8499e117dcffbfd4",
+                "delegator_account_id": "owner",
+                "operation_id": "redelegate-a-f4b0475cc0",
+                "parent_delegation_id": null,
+                "revocation_id": null,
+                "revoked_at": null,
+                "seq": 1
+              }
+            ],
+            "original_account_id": "owner",
+            "revocation_history": [
+              {
+                "created_at": "2026-11-26T02:53:00.190405Z",
+                "initiator_account_id": "initiator-2",
+                "operation_id": "revoke-f4b0475cc0",
+                "revocation_id": "rev_fe527331797948cdb9aa5738ff149752",
+                "revoked_chain": [
+                  {
+                    "created_at": "2026-11-26T02:53:00.106474Z",
+                    "delegatee_account_id": "delegate_a",
+                    "delegation_id": "del_2ca28d543e1c460485cc410766781f97",
+                    "delegator_account_id": "owner",
+                    "seq": 1
+                  },
+                  {
+                    "created_at": "2026-11-26T02:53:00.129873Z",
+                    "delegatee_account_id": "delegate_b",
+                    "delegation_id": "del_ff35d27901594c7190bf6d725a8c58b1",
+                    "delegator_account_id": "delegate_a",
+                    "seq": 2
+                  }
+                ],
+                "revoked_head_delegation_id": "del_ff35d27901594c7190bf6d725a8c58b1"
+              }
+            ]
+          },
+          "authority_hash": "sha256:9e287882926f4f96f87e30515ee5895767a1ea3ae935bac7c0539271ea083ddb",
+          "body_sha256": "sha256:6819751f2ef7334ddbc6e9333b65915539103a44d6b754c2f5e1c34efb8b38cc",
+          "challenge_id": "chal_1588ed9e0dfa4f248d122b50eb9b0ca5",
+          "issued_at": "2026-11-26T02:53:00.232270Z",
+          "nonce_b64": "AahSvx64xqZi5lknuuZEsMUlFb+ilNmEVavtHcOGPto=",
+          "schema": "multi-party-agreement-signing-challenge/v1",
+          "seat": {
+            "label": null,
+            "original_account_id": "owner",
+            "seat_id": "seat_3b230f9196b343568ffec07d3a9ea663",
+            "seat_key": "delegated-seat",
+            "stage": 1
+          },
+          "signer": {
+            "account_id": "delegate_a",
+            "public_key_b64": "8Kz0/uBkPxHNQ/FbO+y8R2HOEwZF+IaXJegpcoloT5U="
+          },
+          "stage_gate": {
+            "all_lower_stages_completed": true,
+            "completed_lower_seats": [],
+            "completed_lower_stage_signature_ids": [],
+            "current_stage": 1,
+            "lower_stage_seat_count": 0
+          },
+          "title": "委托链与撤销演示协议"
+        },
+        "challenge_b64": "eyJhZ3JlZW1lbnRfaWQiOiJhZ3JfOTg0YzM2NTU2Zjk4NDVhZGI5ZmE0ODExYmE1MGExMzgiLCJhdXRob3JpdHkiOnsiYWN0aXZlX2NoYWluIjpbeyJjcmVhdGVkX2F0IjoiMjAyNi0xMS0yNlQwMjo1MzowMC4xOTkxNzlaIiwiZGVsZWdhdGVlX2FjY291bnRfaWQiOiJkZWxlZ2F0ZV9hIiwiZGVsZWdhdGlvbl9pZCI6ImRlbF9lYzZiYmIwM2I0N2Y0ZTZkODQ5OWUxMTdkY2ZmYmZkNCIsImRlbGVnYXRvcl9hY2NvdW50X2lkIjoib3duZXIiLCJwYXJlbnRfZGVsZWdhdGlvbl9pZCI6bnVsbCwic2VxIjoxfV0sImF1dGhvcml0eV9iYXNpcyI6IkRFTEVHQVRJT04iLCJhdXRob3JpdHlfZ2VuZXJhdGlvbiI6NCwiY3VycmVudF9hY2NvdW50X2lkIjoiZGVsZWdhdGVfYSIsImRlbGVnYXRpb25faGlzdG9yeSI6W3siY3JlYXRlZF9hdCI6IjIwMjYtMTEtMjZUMDI6NTM6MDAuMTA2NDc0WiIsImRlbGVnYXRlZV9hY2NvdW50X2lkIjoiZGVsZWdhdGVfYSIsImRlbGVnYXRpb25faWQiOiJkZWxfMmNhMjhkNTQzZTFjNDYwNDg1Y2M0MTA3NjY3ODFmOTciLCJkZWxlZ2F0b3JfYWNjb3VudF9pZCI6Im93bmVyIiwib3BlcmF0aW9uX2lkIjoiZGVsLW93bmVyLWEtZjRiMDQ3NWNjMCIsInBhcmVudF9kZWxlZ2F0aW9uX2lkIjpudWxsLCJyZXZvY2F0aW9uX2lkIjoicmV2X2ZlNTI3MzMxNzk3OTQ4Y2RiOWFhNTczOGZmMTQ5NzUyIiwicmV2b2tlZF9hdCI6IjIwMjYtMTEtMjZUMDI6NTM6MDAuMTkwNDA1WiIsInNlcSI6MX0seyJjcmVhdGVkX2F0IjoiMjAyNi0xMS0yNlQwMjo1MzowMC4xMjk4NzNaIiwiZGVsZWdhdGVlX2FjY291bnRfaWQiOiJkZWxlZ2F0ZV9iIiwiZGVsZWdhdGlvbl9pZCI6ImRlbF9mZjM1ZDI3OTAxNTk0YzcxOTBiZjZkNzI1YThjNThiMSIsImRlbGVnYXRvcl9hY2NvdW50X2lkIjoiZGVsZWdhdGVfYSIsIm9wZXJhdGlvbl9pZCI6ImRlbC1hLWItZjRiMDQ3NWNjMCIsInBhcmVudF9kZWxlZ2F0aW9uX2lkIjoiZGVsXzJjYTI4ZDU0M2UxYzQ2MDQ4NWNjNDEwNzY2NzgxZjk3IiwicmV2b2NhdGlvbl9pZCI6InJldl9mZTUyNzMzMTc5Nzk0OGNkYjlhYTU3MzhmZjE0OTc1MiIsInJldm9rZWRfYXQiOiIyMDI2LTExLTI2VDAyOjUzOjAwLjE5MDQwNVoiLCJzZXEiOjJ9LHsiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMjZUMDI6NTM6MDAuMTk5MTc5WiIsImRlbGVnYXRlZV9hY2NvdW50X2lkIjoiZGVsZWdhdGVfYSIsImRlbGVnYXRpb25faWQiOiJkZWxfZWM2YmJiMDNiNDdmNGU2ZDg0OTllMTE3ZGNmZmJmZDQiLCJkZWxlZ2F0b3JfYWNjb3VudF9pZCI6Im93bmVyIiwib3BlcmF0aW9uX2lkIjoicmVkZWxlZ2F0ZS1hLWY0YjA0NzVjYzAiLCJwYXJlbnRfZGVsZWdhdGlvbl9pZCI6bnVsbCwicmV2b2NhdGlvbl9pZCI6bnVsbCwicmV2b2tlZF9hdCI6bnVsbCwic2VxIjoxfV0sIm9yaWdpbmFsX2FjY291bnRfaWQiOiJvd25lciIsInJldm9jYXRpb25faGlzdG9yeSI6W3siY3JlYXRlZF9hdCI6IjIwMjYtMTEtMjZUMDI6NTM6MDAuMTkwNDA1WiIsImluaXRpYXRvcl9hY2NvdW50X2lkIjoiaW5pdGlhdG9yLTIiLCJvcGVyYXRpb25faWQiOiJyZXZva2UtZjRiMDQ3NWNjMCIsInJldm9jYXRpb25faWQiOiJyZXZfZmU1MjczMzE3OTc5NDhjZGI5YWE1NzM4ZmYxNDk3NTIiLCJyZXZva2VkX2NoYWluIjpbeyJjcmVhdGVkX2F0IjoiMjAyNi0xMS0yNlQwMjo1MzowMC4xMDY0NzRaIiwiZGVsZWdhdGVlX2FjY291bnRfaWQiOiJkZWxlZ2F0ZV9hIiwiZGVsZWdhdGlvbl9pZCI6ImRlbF8yY2EyOGQ1NDNlMWM0NjA0ODVjYzQxMDc2Njc4MWY5NyIsImRlbGVnYXRvcl9hY2NvdW50X2lkIjoib3duZXIiLCJzZXEiOjF9LHsiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMjZUMDI6NTM6MDAuMTI5ODczWiIsImRlbGVnYXRlZV9hY2NvdW50X2lkIjoiZGVsZWdhdGVfYiIsImRlbGVnYXRpb25faWQiOiJkZWxfZmYzNWQyNzkwMTU5NGM3MTkwYmY2ZDcyNWE4YzU4YjEiLCJkZWxlZ2F0b3JfYWNjb3VudF9pZCI6ImRlbGVnYXRlX2EiLCJzZXEiOjJ9XSwicmV2b2tlZF9oZWFkX2RlbGVnYXRpb25faWQiOiJkZWxfZmYzNWQyNzkwMTU5NGM3MTkwYmY2ZDcyNWE4YzU4YjEifV19LCJhdXRob3JpdHlfaGFzaCI6InNoYTI1Njo5ZTI4Nzg4MjkyNmY0Zjk2Zjg3ZTMwNTE1ZWU1ODk1NzY3YTFlYTNhZTkzNWJhYzdjMDUzOTI3MWVhMDgzZGRiIiwiYm9keV9zaGEyNTYiOiJzaGEyNTY6NjgxOTc1MWYyZWY3MzM0ZGRiYzZlOTMzM2I2NTkxNTUzOTEwM2E0NGQ2Yjc1NGMyZjVlMWMzNGVmYjhiMzhjYyIsImNoYWxsZW5nZV9pZCI6ImNoYWxfMTU4OGVkOWUwZGZhNGYyNDhkMTIyYjUwZWI5YjBjYTUiLCJpc3N1ZWRfYXQiOiIyMDI2LTExLTI2VDAyOjUzOjAwLjIzMjI3MFoiLCJub25jZV9iNjQiOiJBYWhTdng2NHhxWmk1bGtudXVaRXNNVWxGYitpbE5tRVZhdnRIY09HUHRvPSIsInNjaGVtYSI6Im11bHRpLXBhcnR5LWFncmVlbWVudC1zaWduaW5nLWNoYWxsZW5nZS92MSIsInNlYXQiOnsibGFiZWwiOm51bGwsIm9yaWdpbmFsX2FjY291bnRfaWQiOiJvd25lciIsInNlYXRfaWQiOiJzZWF0XzNiMjMwZjkxOTZiMzQzNTY4ZmZlYzA3ZDNhOWVhNjYzIiwic2VhdF9rZXkiOiJkZWxlZ2F0ZWQtc2VhdCIsInN0YWdlIjoxfSwic2lnbmVyIjp7ImFjY291bnRfaWQiOiJkZWxlZ2F0ZV9hIiwicHVibGljX2tleV9iNjQiOiI4S3owL3VCa1B4SE5RL0ZiTyt5OFIySE9Fd1pGK0lhWEplZ3Bjb2xvVDVVPSJ9LCJzdGFnZV9nYXRlIjp7ImFsbF9sb3dlcl9zdGFnZXNfY29tcGxldGVkIjp0cnVlLCJjb21wbGV0ZWRfbG93ZXJfc2VhdHMiOltdLCJjb21wbGV0ZWRfbG93ZXJfc3RhZ2Vfc2lnbmF0dXJlX2lkcyI6W10sImN1cnJlbnRfc3RhZ2UiOjEsImxvd2VyX3N0YWdlX3NlYXRfY291bnQiOjB9LCJ0aXRsZSI6IuWnlOaJmOmTvuS4juaSpOmUgOa8lOekuuWNj+iuriJ9",
+        "challenge_id": "chal_1588ed9e0dfa4f248d122b50eb9b0ca5",
+        "challenge_sha256": "sha256:ab2ab1819eb2d3e1771188ee02e5a061d1b3169754cb3fe9a3b821b347975edb",
+        "delegation_source": {
+          "active_chain": [
+            {
+              "created_at": "2026-11-26T02:53:00.199179Z",
+              "delegatee_account_id": "delegate_a",
+              "delegation_id": "del_ec6bbb03b47f4e6d8499e117dcffbfd4",
+              "delegator_account_id": "owner",
+              "parent_delegation_id": null,
+              "seq": 1
+            }
+          ],
+          "authority_basis": "DELEGATION",
+          "authority_generation": 4,
+          "current_account_id": "delegate_a",
+          "delegation_history": [
+            {
+              "created_at": "2026-11-26T02:53:00.106474Z",
+              "delegatee_account_id": "delegate_a",
+              "delegation_id": "del_2ca28d543e1c460485cc410766781f97",
+              "delegator_account_id": "owner",
+              "operation_id": "del-owner-a-f4b0475cc0",
+              "parent_delegation_id": null,
+              "revocation_id": "rev_fe527331797948cdb9aa5738ff149752",
+              "revoked_at": "2026-11-26T02:53:00.190405Z",
+              "seq": 1
+            },
+            {
+              "created_at": "2026-11-26T02:53:00.129873Z",
+              "delegatee_account_id": "delegate_b",
+              "delegation_id": "del_ff35d27901594c7190bf6d725a8c58b1",
+              "delegator_account_id": "delegate_a",
+              "operation_id": "del-a-b-f4b0475cc0",
+              "parent_delegation_id": "del_2ca28d543e1c460485cc410766781f97",
+              "revocation_id": "rev_fe527331797948cdb9aa5738ff149752",
+              "revoked_at": "2026-11-26T02:53:00.190405Z",
+              "seq": 2
+            },
+            {
+              "created_at": "2026-11-26T02:53:00.199179Z",
+              "delegatee_account_id": "delegate_a",
+              "delegation_id": "del_ec6bbb03b47f4e6d8499e117dcffbfd4",
+              "delegator_account_id": "owner",
+              "operation_id": "redelegate-a-f4b0475cc0",
+              "parent_delegation_id": null,
+              "revocation_id": null,
+              "revoked_at": null,
+              "seq": 1
+            }
+          ],
+          "original_account_id": "owner",
+          "revocation_history": [
+            {
+              "created_at": "2026-11-26T02:53:00.190405Z",
+              "initiator_account_id": "initiator-2",
+              "operation_id": "revoke-f4b0475cc0",
+              "revocation_id": "rev_fe527331797948cdb9aa5738ff149752",
+              "revoked_chain": [
+                {
+                  "created_at": "2026-11-26T02:53:00.106474Z",
+                  "delegatee_account_id": "delegate_a",
+                  "delegation_id": "del_2ca28d543e1c460485cc410766781f97",
+                  "delegator_account_id": "owner",
+                  "seq": 1
+                },
+                {
+                  "created_at": "2026-11-26T02:53:00.129873Z",
+                  "delegatee_account_id": "delegate_b",
+                  "delegation_id": "del_ff35d27901594c7190bf6d725a8c58b1",
+                  "delegator_account_id": "delegate_a",
+                  "seq": 2
+                }
+              ],
+              "revoked_head_delegation_id": "del_ff35d27901594c7190bf6d725a8c58b1"
+            }
+          ]
+        },
+        "operation_id": "new-a-sign-f4b0475cc0",
+        "original_account_id": "owner",
+        "signature_b64": "fy39T22LGT5jr7ZmJe70u9aNQ7BsNK91x49s1BzcGDLyq4H85BXeASSFTVeLVa3o+34NYLkRXXiSC51uAYsuCQ==",
+        "signature_id": "sig_dac8c8fa18f14dfc976ac979674d8fb4",
+        "signed_at": "2026-11-26T02:53:00.247283Z",
+        "signer_public_key_b64": "8Kz0/uBkPxHNQ/FbO+y8R2HOEwZF+IaXJegpcoloT5U=",
+        "stage_gate": {
+          "all_lower_stages_completed": true,
+          "completed_lower_seats": [],
+          "completed_lower_stage_signature_ids": [],
+          "current_stage": 1,
+          "lower_stage_seat_count": 0
+        }
+      },
+      "stage": 1,
+      "status": "signed"
+    }
+  ],
+  "sent_at": "2026-11-26T02:53:00.089621Z",
+  "stage_summary": [
+    {
+      "complete": true,
+      "seat_count": 1,
+      "signed_count": 1,
+      "stage": 1
+    }
+  ],
+  "title": "委托链与撤销演示协议",
+  "verification": {
+    "body_hash_algorithm": "SHA-256",
+    "canonical_json": "UTF-8, sorted keys, compact separators",
+    "signature_algorithm": "Ed25519",
+    "signature_message": "exact canonical challenge_bytes returned by /challenges"
+  }
+}

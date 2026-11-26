@@ -1,0 +1,407 @@
+{
+  "agreement_id": "agr_acaf58f82603481baac9aedceee57358",
+  "body": {
+    "byte_length": 281,
+    "data": "5aSa5pa55YWx5ZCM56Gu6K6k5Y2P6K6u5q2j5paHCua8lOekuui/kOihjOe8luWPtzogZjRiMDQ3NWNjMArnrKzkuIDmnaHvvJrmiYDmnInnrb7nvbLkurrnoa7orqTmnKzmraPmlofjgIIK56ys5LqM5p2h77ya56ys5LiA6Zi25q615bit5L2N5a6M5oiQ5ZCO77yM56ys5LqM6Zi25q615pa55Y+v562+572y77yb5ZCM6Zi25q615Y+v5bm26KGM44CCCuesrOS4ieadoe+8muWnlOaJmOOAgeaSpOmUgOOAgeaMkeaImOWSjOetvue9suWdh+eUseWQjuerr+aMieW9k+WJjeeKtuaAgeijgeWGs+OAggo=",
+    "encoding": "base64",
+    "sha256": "sha256:ed0da63d759e75e2f6429ce0b1d48a3b9297684ceb5ef9afcae1a74a0cb41900"
+  },
+  "certificate_hash": "sha256:11d9282f26a1a4f20636af884c18d62139fe7295783181aab92ed3ca8beff8b2",
+  "certificate_id": "cert_3bf161534b8c416f939571fa4e9f062d",
+  "completed_at": "2026-11-26T02:53:00.059452Z",
+  "created_at": "2026-11-26T02:52:59.855100Z",
+  "initiator_account_id": "initiator-1",
+  "schema": "multi-party-agreement-signed-certificate/v1",
+  "seats": [
+    {
+      "actual_signer_account_id": "alice",
+      "completed_at": "2026-11-26T02:52:59.971900Z",
+      "label": "第一阶段·甲方",
+      "original_account_id": "alice",
+      "position": 1,
+      "seat_id": "seat_81efa5b4d1814c2f873a73a1a46cb173",
+      "seat_key": "stage1-alice",
+      "signature": {
+        "actual_signer_account_id": "alice",
+        "authority_generation": 0,
+        "body_sha256": "sha256:ed0da63d759e75e2f6429ce0b1d48a3b9297684ceb5ef9afcae1a74a0cb41900",
+        "challenge": {
+          "agreement_id": "agr_acaf58f82603481baac9aedceee57358",
+          "authority": {
+            "active_chain": [],
+            "authority_basis": "ORIGINAL",
+            "authority_generation": 0,
+            "current_account_id": "alice",
+            "delegation_history": [],
+            "original_account_id": "alice",
+            "revocation_history": []
+          },
+          "authority_hash": "sha256:b8b5e0dd5c7f6c1e2ca7a89e0fa3672b6af915a8022db3414306e2558703f45a",
+          "body_sha256": "sha256:ed0da63d759e75e2f6429ce0b1d48a3b9297684ceb5ef9afcae1a74a0cb41900",
+          "challenge_id": "chal_99ad0b7a07c34fe587e57b7d0666ce6a",
+          "issued_at": "2026-11-26T02:52:59.960283Z",
+          "nonce_b64": "7ROiP/IEYM0cyRXdbrD22mkyl39X82xRBwQH7vS3QIU=",
+          "schema": "multi-party-agreement-signing-challenge/v1",
+          "seat": {
+            "label": "第一阶段·甲方",
+            "original_account_id": "alice",
+            "seat_id": "seat_81efa5b4d1814c2f873a73a1a46cb173",
+            "seat_key": "stage1-alice",
+            "stage": 1
+          },
+          "signer": {
+            "account_id": "alice",
+            "public_key_b64": "XjBnIE+DC4CZndwYaTiZ6rJjK14/SS0VnWCijxcN16A="
+          },
+          "stage_gate": {
+            "all_lower_stages_completed": true,
+            "completed_lower_seats": [],
+            "completed_lower_stage_signature_ids": [],
+            "current_stage": 1,
+            "lower_stage_seat_count": 0
+          },
+          "title": "两阶段并行签署演示协议"
+        },
+        "challenge_b64": "eyJhZ3JlZW1lbnRfaWQiOiJhZ3JfYWNhZjU4ZjgyNjAzNDgxYmFhYzlhZWRjZWVlNTczNTgiLCJhdXRob3JpdHkiOnsiYWN0aXZlX2NoYWluIjpbXSwiYXV0aG9yaXR5X2Jhc2lzIjoiT1JJR0lOQUwiLCJhdXRob3JpdHlfZ2VuZXJhdGlvbiI6MCwiY3VycmVudF9hY2NvdW50X2lkIjoiYWxpY2UiLCJkZWxlZ2F0aW9uX2hpc3RvcnkiOltdLCJvcmlnaW5hbF9hY2NvdW50X2lkIjoiYWxpY2UiLCJyZXZvY2F0aW9uX2hpc3RvcnkiOltdfSwiYXV0aG9yaXR5X2hhc2giOiJzaGEyNTY6YjhiNWUwZGQ1YzdmNmMxZTJjYTdhODllMGZhMzY3MmI2YWY5MTVhODAyMmRiMzQxNDMwNmUyNTU4NzAzZjQ1YSIsImJvZHlfc2hhMjU2Ijoic2hhMjU2OmVkMGRhNjNkNzU5ZTc1ZTJmNjQyOWNlMGIxZDQ4YTNiOTI5NzY4NGNlYjVlZjlhZmNhZTFhNzRhMGNiNDE5MDAiLCJjaGFsbGVuZ2VfaWQiOiJjaGFsXzk5YWQwYjdhMDdjMzRmZTU4N2U1N2I3ZDA2NjZjZTZhIiwiaXNzdWVkX2F0IjoiMjAyNi0xMS0yNlQwMjo1Mjo1OS45NjAyODNaIiwibm9uY2VfYjY0IjoiN1JPaVAvSUVZTTBjeVJYZGJyRDIybWt5bDM5WDgyeFJCd1FIN3ZTM1FJVT0iLCJzY2hlbWEiOiJtdWx0aS1wYXJ0eS1hZ3JlZW1lbnQtc2lnbmluZy1jaGFsbGVuZ2UvdjEiLCJzZWF0Ijp7ImxhYmVsIjoi56ys5LiA6Zi25q61wrfnlLLmlrkiLCJvcmlnaW5hbF9hY2NvdW50X2lkIjoiYWxpY2UiLCJzZWF0X2lkIjoic2VhdF84MWVmYTViNGQxODE0YzJmODczYTczYTFhNDZjYjE3MyIsInNlYXRfa2V5Ijoic3RhZ2UxLWFsaWNlIiwic3RhZ2UiOjF9LCJzaWduZXIiOnsiYWNjb3VudF9pZCI6ImFsaWNlIiwicHVibGljX2tleV9iNjQiOiJYakJuSUUrREM0Q1puZHdZYVRpWjZySmpLMTQvU1MwVm5XQ2lqeGNOMTZBPSJ9LCJzdGFnZV9nYXRlIjp7ImFsbF9sb3dlcl9zdGFnZXNfY29tcGxldGVkIjp0cnVlLCJjb21wbGV0ZWRfbG93ZXJfc2VhdHMiOltdLCJjb21wbGV0ZWRfbG93ZXJfc3RhZ2Vfc2lnbmF0dXJlX2lkcyI6W10sImN1cnJlbnRfc3RhZ2UiOjEsImxvd2VyX3N0YWdlX3NlYXRfY291bnQiOjB9LCJ0aXRsZSI6IuS4pOmYtuauteW5tuihjOetvue9sua8lOekuuWNj+iuriJ9",
+        "challenge_id": "chal_99ad0b7a07c34fe587e57b7d0666ce6a",
+        "challenge_sha256": "sha256:dbb8891693f1106bad386829b5f5cfd8401dfbcd5b3c7a5a2d760db39e4cfeb8",
+        "delegation_source": {
+          "active_chain": [],
+          "authority_basis": "ORIGINAL",
+          "authority_generation": 0,
+          "current_account_id": "alice",
+          "delegation_history": [],
+          "original_account_id": "alice",
+          "revocation_history": []
+        },
+        "operation_id": "signature-alice-f4b0475cc0-s1a",
+        "original_account_id": "alice",
+        "signature_b64": "6meqBAczU0XEXiVt9fNYLUcEBXfZLDnWXFdcFkGSB8KNYI9rBtyX1N9FYCfXkRo6InK0CbDu7fAE2UPM+xb/AQ==",
+        "signature_id": "sig_a5cf8bfd032745668fdb516242a26b1c",
+        "signed_at": "2026-11-26T02:52:59.971900Z",
+        "signer_public_key_b64": "XjBnIE+DC4CZndwYaTiZ6rJjK14/SS0VnWCijxcN16A=",
+        "stage_gate": {
+          "all_lower_stages_completed": true,
+          "completed_lower_seats": [],
+          "completed_lower_stage_signature_ids": [],
+          "current_stage": 1,
+          "lower_stage_seat_count": 0
+        }
+      },
+      "stage": 1,
+      "status": "signed"
+    },
+    {
+      "actual_signer_account_id": "bob",
+      "completed_at": "2026-11-26T02:52:59.949367Z",
+      "label": "第一阶段·乙方",
+      "original_account_id": "bob",
+      "position": 2,
+      "seat_id": "seat_8ce17604b11c4185aaf255640300e500",
+      "seat_key": "stage1-bob",
+      "signature": {
+        "actual_signer_account_id": "bob",
+        "authority_generation": 0,
+        "body_sha256": "sha256:ed0da63d759e75e2f6429ce0b1d48a3b9297684ceb5ef9afcae1a74a0cb41900",
+        "challenge": {
+          "agreement_id": "agr_acaf58f82603481baac9aedceee57358",
+          "authority": {
+            "active_chain": [],
+            "authority_basis": "ORIGINAL",
+            "authority_generation": 0,
+            "current_account_id": "bob",
+            "delegation_history": [],
+            "original_account_id": "bob",
+            "revocation_history": []
+          },
+          "authority_hash": "sha256:e8409ab3bc5b0284b4a6f73e0638c88b5cd68a877055801728344e09f5ba11ea",
+          "body_sha256": "sha256:ed0da63d759e75e2f6429ce0b1d48a3b9297684ceb5ef9afcae1a74a0cb41900",
+          "challenge_id": "chal_e0d168b18f014034beab475a03bd8562",
+          "issued_at": "2026-11-26T02:52:59.941797Z",
+          "nonce_b64": "zb/3Ybf/qLaJsvLUvPmCGw2BOniyxF4JhI+OXZvwH8M=",
+          "schema": "multi-party-agreement-signing-challenge/v1",
+          "seat": {
+            "label": "第一阶段·乙方",
+            "original_account_id": "bob",
+            "seat_id": "seat_8ce17604b11c4185aaf255640300e500",
+            "seat_key": "stage1-bob",
+            "stage": 1
+          },
+          "signer": {
+            "account_id": "bob",
+            "public_key_b64": "5ZKoWTHh6zUm523cCm7FwzvaiZZzQ4ZvBCPVt3m87RI="
+          },
+          "stage_gate": {
+            "all_lower_stages_completed": true,
+            "completed_lower_seats": [],
+            "completed_lower_stage_signature_ids": [],
+            "current_stage": 1,
+            "lower_stage_seat_count": 0
+          },
+          "title": "两阶段并行签署演示协议"
+        },
+        "challenge_b64": "eyJhZ3JlZW1lbnRfaWQiOiJhZ3JfYWNhZjU4ZjgyNjAzNDgxYmFhYzlhZWRjZWVlNTczNTgiLCJhdXRob3JpdHkiOnsiYWN0aXZlX2NoYWluIjpbXSwiYXV0aG9yaXR5X2Jhc2lzIjoiT1JJR0lOQUwiLCJhdXRob3JpdHlfZ2VuZXJhdGlvbiI6MCwiY3VycmVudF9hY2NvdW50X2lkIjoiYm9iIiwiZGVsZWdhdGlvbl9oaXN0b3J5IjpbXSwib3JpZ2luYWxfYWNjb3VudF9pZCI6ImJvYiIsInJldm9jYXRpb25faGlzdG9yeSI6W119LCJhdXRob3JpdHlfaGFzaCI6InNoYTI1NjplODQwOWFiM2JjNWIwMjg0YjRhNmY3M2UwNjM4Yzg4YjVjZDY4YTg3NzA1NTgwMTcyODM0NGUwOWY1YmExMWVhIiwiYm9keV9zaGEyNTYiOiJzaGEyNTY6ZWQwZGE2M2Q3NTllNzVlMmY2NDI5Y2UwYjFkNDhhM2I5Mjk3Njg0Y2ViNWVmOWFmY2FlMWE3NGEwY2I0MTkwMCIsImNoYWxsZW5nZV9pZCI6ImNoYWxfZTBkMTY4YjE4ZjAxNDAzNGJlYWI0NzVhMDNiZDg1NjIiLCJpc3N1ZWRfYXQiOiIyMDI2LTExLTI2VDAyOjUyOjU5Ljk0MTc5N1oiLCJub25jZV9iNjQiOiJ6Yi8zWWJmL3FMYUpzdkxVdlBtQ0d3MkJPbml5eEY0SmhJK09YWnZ3SDhNPSIsInNjaGVtYSI6Im11bHRpLXBhcnR5LWFncmVlbWVudC1zaWduaW5nLWNoYWxsZW5nZS92MSIsInNlYXQiOnsibGFiZWwiOiLnrKzkuIDpmLbmrrXCt+S5meaWuSIsIm9yaWdpbmFsX2FjY291bnRfaWQiOiJib2IiLCJzZWF0X2lkIjoic2VhdF84Y2UxNzYwNGIxMWM0MTg1YWFmMjU1NjQwMzAwZTUwMCIsInNlYXRfa2V5Ijoic3RhZ2UxLWJvYiIsInN0YWdlIjoxfSwic2lnbmVyIjp7ImFjY291bnRfaWQiOiJib2IiLCJwdWJsaWNfa2V5X2I2NCI6IjVaS29XVEhoNnpVbTUyM2NDbTdGd3p2YWlaWnpRNFp2QkNQVnQzbTg3Ukk9In0sInN0YWdlX2dhdGUiOnsiYWxsX2xvd2VyX3N0YWdlc19jb21wbGV0ZWQiOnRydWUsImNvbXBsZXRlZF9sb3dlcl9zZWF0cyI6W10sImNvbXBsZXRlZF9sb3dlcl9zdGFnZV9zaWduYXR1cmVfaWRzIjpbXSwiY3VycmVudF9zdGFnZSI6MSwibG93ZXJfc3RhZ2Vfc2VhdF9jb3VudCI6MH0sInRpdGxlIjoi5Lik6Zi25q615bm26KGM562+572y5ryU56S65Y2P6K6uIn0=",
+        "challenge_id": "chal_e0d168b18f014034beab475a03bd8562",
+        "challenge_sha256": "sha256:2f024de755bc562759d1b335bfadc6024f07a8201b2b7c9f7c29e3a7b48ce62e",
+        "delegation_source": {
+          "active_chain": [],
+          "authority_basis": "ORIGINAL",
+          "authority_generation": 0,
+          "current_account_id": "bob",
+          "delegation_history": [],
+          "original_account_id": "bob",
+          "revocation_history": []
+        },
+        "operation_id": "signature-bob-f4b0475cc0-s1b",
+        "original_account_id": "bob",
+        "signature_b64": "n6T/EUY/LWih3p8K9enFkvhINQ1PSG2aniUtuMybhSpeGf6YFofWK2rLEK+5SHXSZFtLo02rfaeFcRSJrU1iCA==",
+        "signature_id": "sig_4e7f725c954e49ee9883e0c2d5fb3786",
+        "signed_at": "2026-11-26T02:52:59.949367Z",
+        "signer_public_key_b64": "5ZKoWTHh6zUm523cCm7FwzvaiZZzQ4ZvBCPVt3m87RI=",
+        "stage_gate": {
+          "all_lower_stages_completed": true,
+          "completed_lower_seats": [],
+          "completed_lower_stage_signature_ids": [],
+          "current_stage": 1,
+          "lower_stage_seat_count": 0
+        }
+      },
+      "stage": 1,
+      "status": "signed"
+    },
+    {
+      "actual_signer_account_id": "carol",
+      "completed_at": "2026-11-26T02:53:00.059168Z",
+      "label": "第二阶段·复核人",
+      "original_account_id": "carol",
+      "position": 3,
+      "seat_id": "seat_0722d26884294a16a6da22ef5e26593b",
+      "seat_key": "stage2-carol",
+      "signature": {
+        "actual_signer_account_id": "carol",
+        "authority_generation": 0,
+        "body_sha256": "sha256:ed0da63d759e75e2f6429ce0b1d48a3b9297684ceb5ef9afcae1a74a0cb41900",
+        "challenge": {
+          "agreement_id": "agr_acaf58f82603481baac9aedceee57358",
+          "authority": {
+            "active_chain": [],
+            "authority_basis": "ORIGINAL",
+            "authority_generation": 0,
+            "current_account_id": "carol",
+            "delegation_history": [],
+            "original_account_id": "carol",
+            "revocation_history": []
+          },
+          "authority_hash": "sha256:ce37e70bb4acbaba5e1953ec6c8e3c81b8375145f0f62fc264a0a3838609212e",
+          "body_sha256": "sha256:ed0da63d759e75e2f6429ce0b1d48a3b9297684ceb5ef9afcae1a74a0cb41900",
+          "challenge_id": "chal_18fc1f16236a417f9a62a114f17f1177",
+          "issued_at": "2026-11-26T02:53:00.047648Z",
+          "nonce_b64": "I8FDpG34g+cE3U8J4lA1mU6aU1CaBR2i3IoymtwRJJQ=",
+          "schema": "multi-party-agreement-signing-challenge/v1",
+          "seat": {
+            "label": "第二阶段·复核人",
+            "original_account_id": "carol",
+            "seat_id": "seat_0722d26884294a16a6da22ef5e26593b",
+            "seat_key": "stage2-carol",
+            "stage": 2
+          },
+          "signer": {
+            "account_id": "carol",
+            "public_key_b64": "HBPL8xCBxngCBDs+ZviqoYjenXzKoCohaRy/g+xkHyo="
+          },
+          "stage_gate": {
+            "all_lower_stages_completed": true,
+            "completed_lower_seats": [
+              {
+                "seat_id": "seat_81efa5b4d1814c2f873a73a1a46cb173",
+                "signature_id": "sig_a5cf8bfd032745668fdb516242a26b1c",
+                "stage": 1
+              },
+              {
+                "seat_id": "seat_8ce17604b11c4185aaf255640300e500",
+                "signature_id": "sig_4e7f725c954e49ee9883e0c2d5fb3786",
+                "stage": 1
+              }
+            ],
+            "completed_lower_stage_signature_ids": [
+              "sig_a5cf8bfd032745668fdb516242a26b1c",
+              "sig_4e7f725c954e49ee9883e0c2d5fb3786"
+            ],
+            "current_stage": 2,
+            "lower_stage_seat_count": 2
+          },
+          "title": "两阶段并行签署演示协议"
+        },
+        "challenge_b64": "eyJhZ3JlZW1lbnRfaWQiOiJhZ3JfYWNhZjU4ZjgyNjAzNDgxYmFhYzlhZWRjZWVlNTczNTgiLCJhdXRob3JpdHkiOnsiYWN0aXZlX2NoYWluIjpbXSwiYXV0aG9yaXR5X2Jhc2lzIjoiT1JJR0lOQUwiLCJhdXRob3JpdHlfZ2VuZXJhdGlvbiI6MCwiY3VycmVudF9hY2NvdW50X2lkIjoiY2Fyb2wiLCJkZWxlZ2F0aW9uX2hpc3RvcnkiOltdLCJvcmlnaW5hbF9hY2NvdW50X2lkIjoiY2Fyb2wiLCJyZXZvY2F0aW9uX2hpc3RvcnkiOltdfSwiYXV0aG9yaXR5X2hhc2giOiJzaGEyNTY6Y2UzN2U3MGJiNGFjYmFiYTVlMTk1M2VjNmM4ZTNjODFiODM3NTE0NWYwZjYyZmMyNjRhMGEzODM4NjA5MjEyZSIsImJvZHlfc2hhMjU2Ijoic2hhMjU2OmVkMGRhNjNkNzU5ZTc1ZTJmNjQyOWNlMGIxZDQ4YTNiOTI5NzY4NGNlYjVlZjlhZmNhZTFhNzRhMGNiNDE5MDAiLCJjaGFsbGVuZ2VfaWQiOiJjaGFsXzE4ZmMxZjE2MjM2YTQxN2Y5YTYyYTExNGYxN2YxMTc3IiwiaXNzdWVkX2F0IjoiMjAyNi0xMS0yNlQwMjo1MzowMC4wNDc2NDhaIiwibm9uY2VfYjY0IjoiSThGRHBHMzRnK2NFM1U4SjRsQTFtVTZhVTFDYUJSMmkzSW95bXR3UkpKUT0iLCJzY2hlbWEiOiJtdWx0aS1wYXJ0eS1hZ3JlZW1lbnQtc2lnbmluZy1jaGFsbGVuZ2UvdjEiLCJzZWF0Ijp7ImxhYmVsIjoi56ys5LqM6Zi25q61wrflpI3moLjkuroiLCJvcmlnaW5hbF9hY2NvdW50X2lkIjoiY2Fyb2wiLCJzZWF0X2lkIjoic2VhdF8wNzIyZDI2ODg0Mjk0YTE2YTZkYTIyZWY1ZTI2NTkzYiIsInNlYXRfa2V5Ijoic3RhZ2UyLWNhcm9sIiwic3RhZ2UiOjJ9LCJzaWduZXIiOnsiYWNjb3VudF9pZCI6ImNhcm9sIiwicHVibGljX2tleV9iNjQiOiJIQlBMOHhDQnhuZ0NCRHMrWnZpcW9ZamVuWHpLb0NvaGFSeS9nK3hrSHlvPSJ9LCJzdGFnZV9nYXRlIjp7ImFsbF9sb3dlcl9zdGFnZXNfY29tcGxldGVkIjp0cnVlLCJjb21wbGV0ZWRfbG93ZXJfc2VhdHMiOlt7InNlYXRfaWQiOiJzZWF0XzgxZWZhNWI0ZDE4MTRjMmY4NzNhNzNhMWE0NmNiMTczIiwic2lnbmF0dXJlX2lkIjoic2lnX2E1Y2Y4YmZkMDMyNzQ1NjY4ZmRiNTE2MjQyYTI2YjFjIiwic3RhZ2UiOjF9LHsic2VhdF9pZCI6InNlYXRfOGNlMTc2MDRiMTFjNDE4NWFhZjI1NTY0MDMwMGU1MDAiLCJzaWduYXR1cmVfaWQiOiJzaWdfNGU3ZjcyNWM5NTRlNDllZTk4ODNlMGMyZDVmYjM3ODYiLCJzdGFnZSI6MX1dLCJjb21wbGV0ZWRfbG93ZXJfc3RhZ2Vfc2lnbmF0dXJlX2lkcyI6WyJzaWdfYTVjZjhiZmQwMzI3NDU2NjhmZGI1MTYyNDJhMjZiMWMiLCJzaWdfNGU3ZjcyNWM5NTRlNDllZTk4ODNlMGMyZDVmYjM3ODYiXSwiY3VycmVudF9zdGFnZSI6MiwibG93ZXJfc3RhZ2Vfc2VhdF9jb3VudCI6Mn0sInRpdGxlIjoi5Lik6Zi25q615bm26KGM562+572y5ryU56S65Y2P6K6uIn0=",
+        "challenge_id": "chal_18fc1f16236a417f9a62a114f17f1177",
+        "challenge_sha256": "sha256:8b46cccbfbc08591cff6c8c18bf36f9746e2bd90b7e237c67c9d9d096710fa46",
+        "delegation_source": {
+          "active_chain": [],
+          "authority_basis": "ORIGINAL",
+          "authority_generation": 0,
+          "current_account_id": "carol",
+          "delegation_history": [],
+          "original_account_id": "carol",
+          "revocation_history": []
+        },
+        "operation_id": "signature-carol-f4b0475cc0-s2c",
+        "original_account_id": "carol",
+        "signature_b64": "9BO9Nm9PEH47zFoaE0vyqieQOKqunTrxso98zZN0BzyVpi0YaasCzEedfOcVbQaSyhSSY7Nw1CPSV333RhRqBg==",
+        "signature_id": "sig_6949c01c902c4c299e7cbf2d5dd7ba4e",
+        "signed_at": "2026-11-26T02:53:00.059168Z",
+        "signer_public_key_b64": "HBPL8xCBxngCBDs+ZviqoYjenXzKoCohaRy/g+xkHyo=",
+        "stage_gate": {
+          "all_lower_stages_completed": true,
+          "completed_lower_seats": [
+            {
+              "seat_id": "seat_81efa5b4d1814c2f873a73a1a46cb173",
+              "signature_id": "sig_a5cf8bfd032745668fdb516242a26b1c",
+              "stage": 1
+            },
+            {
+              "seat_id": "seat_8ce17604b11c4185aaf255640300e500",
+              "signature_id": "sig_4e7f725c954e49ee9883e0c2d5fb3786",
+              "stage": 1
+            }
+          ],
+          "completed_lower_stage_signature_ids": [
+            "sig_a5cf8bfd032745668fdb516242a26b1c",
+            "sig_4e7f725c954e49ee9883e0c2d5fb3786"
+          ],
+          "current_stage": 2,
+          "lower_stage_seat_count": 2
+        }
+      },
+      "stage": 2,
+      "status": "signed"
+    },
+    {
+      "actual_signer_account_id": "dave",
+      "completed_at": "2026-11-26T02:53:00.045207Z",
+      "label": "第二阶段·批准人",
+      "original_account_id": "dave",
+      "position": 4,
+      "seat_id": "seat_b108381b0b364da7a7569d8f430568f2",
+      "seat_key": "stage2-dave",
+      "signature": {
+        "actual_signer_account_id": "dave",
+        "authority_generation": 0,
+        "body_sha256": "sha256:ed0da63d759e75e2f6429ce0b1d48a3b9297684ceb5ef9afcae1a74a0cb41900",
+        "challenge": {
+          "agreement_id": "agr_acaf58f82603481baac9aedceee57358",
+          "authority": {
+            "active_chain": [],
+            "authority_basis": "ORIGINAL",
+            "authority_generation": 0,
+            "current_account_id": "dave",
+            "delegation_history": [],
+            "original_account_id": "dave",
+            "revocation_history": []
+          },
+          "authority_hash": "sha256:522072f6065f1714480c38705bb7b2bc897778a88f6eb9bf831f8d4b87a124b8",
+          "body_sha256": "sha256:ed0da63d759e75e2f6429ce0b1d48a3b9297684ceb5ef9afcae1a74a0cb41900",
+          "challenge_id": "chal_550343970212446ebd349f1f4557a59e",
+          "issued_at": "2026-11-26T02:53:00.039393Z",
+          "nonce_b64": "E0qzSpGWl2s2gxIPLp14fLO7KxZkz0PSrEaU7ShILpw=",
+          "schema": "multi-party-agreement-signing-challenge/v1",
+          "seat": {
+            "label": "第二阶段·批准人",
+            "original_account_id": "dave",
+            "seat_id": "seat_b108381b0b364da7a7569d8f430568f2",
+            "seat_key": "stage2-dave",
+            "stage": 2
+          },
+          "signer": {
+            "account_id": "dave",
+            "public_key_b64": "JPUKX/1+nlcAr9LKzgHFLRhxq3yaPSStB/CFsm1PfZU="
+          },
+          "stage_gate": {
+            "all_lower_stages_completed": true,
+            "completed_lower_seats": [
+              {
+                "seat_id": "seat_81efa5b4d1814c2f873a73a1a46cb173",
+                "signature_id": "sig_a5cf8bfd032745668fdb516242a26b1c",
+                "stage": 1
+              },
+              {
+                "seat_id": "seat_8ce17604b11c4185aaf255640300e500",
+                "signature_id": "sig_4e7f725c954e49ee9883e0c2d5fb3786",
+                "stage": 1
+              }
+            ],
+            "completed_lower_stage_signature_ids": [
+              "sig_a5cf8bfd032745668fdb516242a26b1c",
+              "sig_4e7f725c954e49ee9883e0c2d5fb3786"
+            ],
+            "current_stage": 2,
+            "lower_stage_seat_count": 2
+          },
+          "title": "两阶段并行签署演示协议"
+        },
+        "challenge_b64": "eyJhZ3JlZW1lbnRfaWQiOiJhZ3JfYWNhZjU4ZjgyNjAzNDgxYmFhYzlhZWRjZWVlNTczNTgiLCJhdXRob3JpdHkiOnsiYWN0aXZlX2NoYWluIjpbXSwiYXV0aG9yaXR5X2Jhc2lzIjoiT1JJR0lOQUwiLCJhdXRob3JpdHlfZ2VuZXJhdGlvbiI6MCwiY3VycmVudF9hY2NvdW50X2lkIjoiZGF2ZSIsImRlbGVnYXRpb25faGlzdG9yeSI6W10sIm9yaWdpbmFsX2FjY291bnRfaWQiOiJkYXZlIiwicmV2b2NhdGlvbl9oaXN0b3J5IjpbXX0sImF1dGhvcml0eV9oYXNoIjoic2hhMjU2OjUyMjA3MmY2MDY1ZjE3MTQ0ODBjMzg3MDViYjdiMmJjODk3Nzc4YTg4ZjZlYjliZjgzMWY4ZDRiODdhMTI0YjgiLCJib2R5X3NoYTI1NiI6InNoYTI1NjplZDBkYTYzZDc1OWU3NWUyZjY0MjljZTBiMWQ0OGEzYjkyOTc2ODRjZWI1ZWY5YWZjYWUxYTc0YTBjYjQxOTAwIiwiY2hhbGxlbmdlX2lkIjoiY2hhbF81NTAzNDM5NzAyMTI0NDZlYmQzNDlmMWY0NTU3YTU5ZSIsImlzc3VlZF9hdCI6IjIwMjYtMTEtMjZUMDI6NTM6MDAuMDM5MzkzWiIsIm5vbmNlX2I2NCI6IkUwcXpTcEdXbDJzMmd4SVBMcDE0ZkxPN0t4Wmt6MFBTckVhVTdTaElMcHc9Iiwic2NoZW1hIjoibXVsdGktcGFydHktYWdyZWVtZW50LXNpZ25pbmctY2hhbGxlbmdlL3YxIiwic2VhdCI6eyJsYWJlbCI6IuesrOS6jOmYtuautcK35om55YeG5Lq6Iiwib3JpZ2luYWxfYWNjb3VudF9pZCI6ImRhdmUiLCJzZWF0X2lkIjoic2VhdF9iMTA4MzgxYjBiMzY0ZGE3YTc1NjlkOGY0MzA1NjhmMiIsInNlYXRfa2V5Ijoic3RhZ2UyLWRhdmUiLCJzdGFnZSI6Mn0sInNpZ25lciI6eyJhY2NvdW50X2lkIjoiZGF2ZSIsInB1YmxpY19rZXlfYjY0IjoiSlBVS1gvMStubGNBcjlMS3pnSEZMUmh4cTN5YVBTU3RCL0NGc20xUGZaVT0ifSwic3RhZ2VfZ2F0ZSI6eyJhbGxfbG93ZXJfc3RhZ2VzX2NvbXBsZXRlZCI6dHJ1ZSwiY29tcGxldGVkX2xvd2VyX3NlYXRzIjpbeyJzZWF0X2lkIjoic2VhdF84MWVmYTViNGQxODE0YzJmODczYTczYTFhNDZjYjE3MyIsInNpZ25hdHVyZV9pZCI6InNpZ19hNWNmOGJmZDAzMjc0NTY2OGZkYjUxNjI0MmEyNmIxYyIsInN0YWdlIjoxfSx7InNlYXRfaWQiOiJzZWF0XzhjZTE3NjA0YjExYzQxODVhYWYyNTU2NDAzMDBlNTAwIiwic2lnbmF0dXJlX2lkIjoic2lnXzRlN2Y3MjVjOTU0ZTQ5ZWU5ODgzZTBjMmQ1ZmIzNzg2Iiwic3RhZ2UiOjF9XSwiY29tcGxldGVkX2xvd2VyX3N0YWdlX3NpZ25hdHVyZV9pZHMiOlsic2lnX2E1Y2Y4YmZkMDMyNzQ1NjY4ZmRiNTE2MjQyYTI2YjFjIiwic2lnXzRlN2Y3MjVjOTU0ZTQ5ZWU5ODgzZTBjMmQ1ZmIzNzg2Il0sImN1cnJlbnRfc3RhZ2UiOjIsImxvd2VyX3N0YWdlX3NlYXRfY291bnQiOjJ9LCJ0aXRsZSI6IuS4pOmYtuauteW5tuihjOetvue9sua8lOekuuWNj+iuriJ9",
+        "challenge_id": "chal_550343970212446ebd349f1f4557a59e",
+        "challenge_sha256": "sha256:12148dd8cdcd698bef9451eb36b33ee7d060d1d3b553a5c16a7a61e311358e27",
+        "delegation_source": {
+          "active_chain": [],
+          "authority_basis": "ORIGINAL",
+          "authority_generation": 0,
+          "current_account_id": "dave",
+          "delegation_history": [],
+          "original_account_id": "dave",
+          "revocation_history": []
+        },
+        "operation_id": "signature-dave-f4b0475cc0-s2d",
+        "original_account_id": "dave",
+        "signature_b64": "qef/9JpTQO+hCtPMetBRAj2pD2b6tUEqRceJ8bNXMkEEozVWSmXMFoq15NEnLTJowM3cY6AMZrafWmO+T2voDg==",
+        "signature_id": "sig_73a9ca646d9f4e928f137cfb3a822465",
+        "signed_at": "2026-11-26T02:53:00.045207Z",
+        "signer_public_key_b64": "JPUKX/1+nlcAr9LKzgHFLRhxq3yaPSStB/CFsm1PfZU=",
+        "stage_gate": {
+          "all_lower_stages_completed": true,
+          "completed_lower_seats": [
+            {
+              "seat_id": "seat_81efa5b4d1814c2f873a73a1a46cb173",
+              "signature_id": "sig_a5cf8bfd032745668fdb516242a26b1c",
+              "stage": 1
+            },
+            {
+              "seat_id": "seat_8ce17604b11c4185aaf255640300e500",
+              "signature_id": "sig_4e7f725c954e49ee9883e0c2d5fb3786",
+              "stage": 1
+            }
+          ],
+          "completed_lower_stage_signature_ids": [
+            "sig_a5cf8bfd032745668fdb516242a26b1c",
+            "sig_4e7f725c954e49ee9883e0c2d5fb3786"
+          ],
+          "current_stage": 2,
+          "lower_stage_seat_count": 2
+        }
+      },
+      "stage": 2,
+      "status": "signed"
+    }
+  ],
+  "sent_at": "2026-11-26T02:52:59.869329Z",
+  "stage_summary": [
+    {
+      "complete": true,
+      "seat_count": 2,
+      "signed_count": 2,
+      "stage": 1
+    },
+    {
+      "complete": true,
+      "seat_count": 2,
+      "signed_count": 2,
+      "stage": 2
+    }
+  ],
+  "title": "两阶段并行签署演示协议",
+  "verification": {
+    "body_hash_algorithm": "SHA-256",
+    "canonical_json": "UTF-8, sorted keys, compact separators",
+    "signature_algorithm": "Ed25519",
+    "signature_message": "exact canonical challenge_bytes returned by /challenges"
+  }
+}
