@@ -9,7 +9,7 @@ from typing import Any, Iterator
 from fastapi import Depends, FastAPI, Request
 from fastapi.responses import Response
 
-from . import service, settlement
+from . import service, settlement, setoff
 from .db import connect, init_db
 from .errors import ApiError, api_error_handler
 from .idempotency import OpResult, idempotent
@@ -19,6 +19,7 @@ from .schemas import (
     CancelRequest,
     ChallengeRequest,
     CompensationCreateRequest,
+    DebtorAccountBindingRequest,
     DelegateRequest,
     DisbursementRequest,
     FundContributionRequest,
@@ -29,6 +30,8 @@ from .schemas import (
     RefundRegisterRequest,
     RevokeRequest,
     SendRequest,
+    SetoffRoundActionRequest,
+    SetoffRoundCreateRequest,
     SignatureRequest,
     TransferApplyRequest,
     TransferConfirmRequest,
@@ -136,12 +139,19 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
     def cancel_agreement(
         agreement_id: str, data: CancelRequest, conn: Any = Depends(get_db)
     ) -> Response:
+        def cancel_agreement_producer(c: Any) -> OpResult:
+            detail = service.cancel_agreement_tx(c, agreement_id, data)
+            linked_round = setoff.handle_agreement_cancelled_tx(c, agreement_id)
+            if linked_round is not None:
+                detail["setoff_round"] = linked_round
+            return OpResult(200, detail)
+
         result = idempotent(
             conn,
             "agreement.cancel",
             data.operation_id,
             {"agreement_id": agreement_id, "body": data.model_dump()},
-            lambda c: OpResult(200, service.cancel_agreement_tx(c, agreement_id, data)),
+            cancel_agreement_producer,
         )
         return result.to_response()
 
@@ -265,6 +275,230 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
     @app.get("/receivables/{receivable_id}")
     def get_receivable(receivable_id: str, conn: Any = Depends(get_db)) -> dict[str, Any]:
         return settlement.receivable_detail(conn, receivable_id)
+
+    # ------------------------------------------------------------------
+    # One-time registered debtor-account bindings
+    # ------------------------------------------------------------------
+
+    debtor_binding_paths = [
+        "/receivables/{receivable_id}/debtor-binding",
+        "/receivables/{receivable_id}/debtor-bindings",
+        "/receivables/{receivable_id}/debtor-account-binding",
+        "/receivables/{receivable_id}/debtor-account-bindings",
+        "/receivables/{receivable_id}/bind-debtor",
+        "/receivables/{receivable_id}/debtor-account",
+        "/receivables/{receivable_id}/debtors",
+        "/receivables/{receivable_id}/debtor-accounts",
+        "/receivables/{receivable_id}/bind-debtor-account",
+    ]
+
+    def bind_debtor_route(
+        receivable_id: str,
+        data: DebtorAccountBindingRequest,
+        conn: Any = Depends(get_db),
+    ) -> Response:
+        result = idempotent(
+            conn,
+            "debtor_binding.bind",
+            data.operation_id,
+            {"receivable_id": receivable_id, "body": data.model_dump()},
+            lambda c: OpResult(
+                201, setoff.bind_debtor_account_tx(c, receivable_id, data)
+            ),
+        )
+        return result.to_response()
+
+    for path in debtor_binding_paths:
+        app.post(path)(bind_debtor_route)
+        app.put(path)(bind_debtor_route)
+
+    @app.post("/debtor-bindings")
+    @app.post("/debtor-account-bindings")
+    @app.post("/receivable-debtor-bindings")
+    def bind_debtor_top_level(
+        data: DebtorAccountBindingRequest, conn: Any = Depends(get_db)
+    ) -> Response:
+        result = idempotent(
+            conn,
+            "debtor_binding.bind",
+            data.operation_id,
+            {"body": data.model_dump()},
+            lambda c: OpResult(201, setoff.bind_debtor_account_tx(c, data.receivable_id or "", data)),
+        )
+        return result.to_response()
+
+    @app.get("/debtor-bindings/{binding_id}")
+    @app.get("/debtor-account-bindings/{binding_id}")
+    def get_debtor_binding(binding_id: str, conn: Any = Depends(get_db)) -> dict[str, Any]:
+        return setoff.debtor_binding_view(conn, binding_id)
+
+    @app.get("/receivables/{receivable_id}/debtor-binding")
+    @app.get("/receivables/{receivable_id}/debtor-account-binding")
+    def get_receivable_debtor_binding(
+        receivable_id: str, conn: Any = Depends(get_db)
+    ) -> dict[str, Any]:
+        binding = setoff.receivable_debtor_binding_view(conn, receivable_id)
+        if binding is None:
+            raise ApiError(
+                404,
+                "DEBTOR_BINDING_NOT_FOUND",
+                "This receivable has no registered debtor account binding.",
+                {"receivable_id": receivable_id},
+            )
+        return binding
+
+    # ------------------------------------------------------------------
+    # Multilateral debt set-off rounds
+    # ------------------------------------------------------------------
+
+    setoff_collection_paths = [
+        "/setoff-rounds",
+        "/setoff_rounds",
+        "/multilateral-setoff-rounds",
+        "/debt-setoff-rounds",
+        "/setoffs",
+        "/debt-setoffs",
+        "/offset-rounds",
+        "/set-off-rounds",
+        "/set_off_rounds",
+        "/multilateral-setoffs",
+        "/multilateral-offsets",
+        "/debt-offsets",
+        "/offsets",
+        "/rounds",
+        "/setoff/rounds",
+        "/offset/rounds",
+    ]
+
+    def create_setoff_round(
+        data: SetoffRoundCreateRequest, conn: Any = Depends(get_db)
+    ) -> Response:
+        result = idempotent(
+            conn,
+            "setoff_round.create",
+            data.operation_id,
+            {"body": data.model_dump()},
+            lambda c: OpResult(201, setoff.create_round_tx(c, data)),
+        )
+        return result.to_response()
+
+    def list_setoff_rounds_route(
+        receivable_id: str | None = None,
+        operator_account_id: str | None = None,
+        conn: Any = Depends(get_db),
+    ) -> dict[str, Any]:
+        return setoff.list_rounds(
+            conn,
+            receivable_id=receivable_id,
+            operator_account_id=operator_account_id,
+        )
+
+    for path in setoff_collection_paths:
+        app.post(path)(create_setoff_round)
+        app.get(path)(list_setoff_rounds_route)
+
+    @app.get("/receivables/{receivable_id}/setoff-rounds")
+    @app.get("/receivables/{receivable_id}/setoffs")
+    def list_receivable_setoff_rounds(
+        receivable_id: str, conn: Any = Depends(get_db)
+    ) -> dict[str, Any]:
+        return setoff.list_rounds(conn, receivable_id=receivable_id)
+
+    setoff_detail_paths = [
+        "/setoff-rounds/{round_id}",
+        "/setoff_rounds/{round_id}",
+        "/multilateral-setoff-rounds/{round_id}",
+        "/debt-setoff-rounds/{round_id}",
+        "/setoffs/{round_id}",
+        "/debt-setoffs/{round_id}",
+        "/offset-rounds/{round_id}",
+        "/set-off-rounds/{round_id}",
+        "/set_off_rounds/{round_id}",
+        "/multilateral-setoffs/{round_id}",
+        "/multilateral-offsets/{round_id}",
+        "/debt-offsets/{round_id}",
+        "/offsets/{round_id}",
+        "/rounds/{round_id}",
+        "/setoff/rounds/{round_id}",
+        "/offset/rounds/{round_id}",
+    ]
+
+    def get_setoff_round(round_id: str, conn: Any = Depends(get_db)) -> dict[str, Any]:
+        return setoff.round_view(conn, round_id)
+
+    for path in setoff_detail_paths:
+        app.get(path)(get_setoff_round)
+
+    setoff_confirm_paths = [
+        "/setoff-rounds/{round_id}/confirmation",
+        "/setoff-rounds/{round_id}/confirm",
+        "/setoff-rounds/{round_id}/effect",
+        "/setoff-rounds/{round_id}/effective",
+        "/setoff-rounds/{round_id}/complete",
+        "/setoff-rounds/{round_id}/completion",
+        "/setoff-rounds/{round_id}/effectuation",
+        "/setoffs/{round_id}/confirmation",
+        "/setoffs/{round_id}/confirm",
+        "/debt-setoffs/{round_id}/confirmation",
+        "/debt-setoffs/{round_id}/confirm",
+        "/offset-rounds/{round_id}/confirmation",
+        "/offset-rounds/{round_id}/confirm",
+        "/rounds/{round_id}/confirmation",
+        "/rounds/{round_id}/confirm",
+    ]
+
+    def confirm_setoff_round_route(
+        round_id: str,
+        data: SetoffRoundActionRequest,
+        conn: Any = Depends(get_db),
+    ) -> Response:
+        result = idempotent(
+            conn,
+            "setoff_round.confirm",
+            data.operation_id,
+            {"round_id": round_id, "body": data.model_dump()},
+            lambda c: setoff.confirm_round_tx(c, round_id, data),
+        )
+        return result.to_response()
+
+    for path in setoff_confirm_paths:
+        app.post(path)(confirm_setoff_round_route)
+
+    setoff_revoke_paths = [
+        "/setoff-rounds/{round_id}/revocation",
+        "/setoff-rounds/{round_id}/revocations",
+        "/setoff-rounds/{round_id}/revoke",
+        "/setoff-rounds/{round_id}/cancellation",
+        "/setoff-rounds/{round_id}/cancel",
+        "/setoffs/{round_id}/revocation",
+        "/setoffs/{round_id}/revoke",
+        "/setoffs/{round_id}/cancel",
+        "/debt-setoffs/{round_id}/revocation",
+        "/debt-setoffs/{round_id}/revoke",
+        "/offset-rounds/{round_id}/revocation",
+        "/offset-rounds/{round_id}/revoke",
+        "/offset-rounds/{round_id}/cancel",
+        "/rounds/{round_id}/revocation",
+        "/rounds/{round_id}/revoke",
+        "/rounds/{round_id}/cancel",
+    ]
+
+    def revoke_setoff_round_route(
+        round_id: str,
+        data: SetoffRoundActionRequest,
+        conn: Any = Depends(get_db),
+    ) -> Response:
+        result = idempotent(
+            conn,
+            "setoff_round.revoke",
+            data.operation_id,
+            {"round_id": round_id, "body": data.model_dump()},
+            lambda c: OpResult(200, setoff.revoke_round_tx(c, round_id, data)),
+        )
+        return result.to_response()
+
+    for path in setoff_revoke_paths:
+        app.post(path)(revoke_setoff_round_route)
 
     # ------------------------------------------------------------------
     # Guarantee funds, binding, compensation and subrogation

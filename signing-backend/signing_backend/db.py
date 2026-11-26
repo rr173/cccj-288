@@ -438,6 +438,75 @@ CREATE TABLE IF NOT EXISTS fund_ledger (
 );
 
 CREATE INDEX IF NOT EXISTS idx_fund_ledger_fund ON fund_ledger(fund_id);
+
+-- ---------------------------------------------------------------------------
+-- Bound debtor accounts and multilateral debt set-off rounds
+--
+-- A receivable's debtor starts as free text.  The operator that registered the
+-- receivable may bind it once to a registered account.  Set-off rounds then
+-- create all-or-nothing occupations of ordinary holdings while participants
+-- sign the dedicated multilateral agreement.  Effective rounds deduct
+-- holdings/receivable remaining principal exactly once; they never create
+-- settlement account or fund ledger movements.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS receivable_debtor_bindings (
+    binding_id              TEXT PRIMARY KEY,
+    receivable_id           TEXT NOT NULL UNIQUE REFERENCES receivables(receivable_id),
+    debtor_account_id       TEXT NOT NULL,
+    operator_account_id     TEXT NOT NULL,
+    operation_id            TEXT NOT NULL,
+    created_at              TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_debtor_bindings_debtor
+    ON receivable_debtor_bindings(debtor_account_id);
+
+CREATE TABLE IF NOT EXISTS setoff_rounds (
+    round_id                    TEXT PRIMARY KEY,
+    round_no                    TEXT NOT NULL UNIQUE,
+    operator_account_id         TEXT NOT NULL,
+    agreement_id                TEXT NOT NULL UNIQUE REFERENCES agreements(agreement_id),
+    status                      TEXT NOT NULL DEFAULT 'pending'
+                                    CHECK (status IN ('pending','effective','revoked','invalid')),
+    total_offset_cents          INTEGER NOT NULL CHECK (total_offset_cents >= 0),
+    participant_count           INTEGER NOT NULL DEFAULT 0 CHECK (participant_count >= 0),
+    requested_item_count        INTEGER NOT NULL DEFAULT 0 CHECK (requested_item_count >= 0),
+    included_item_count         INTEGER NOT NULL DEFAULT 0 CHECK (included_item_count >= 0),
+    selected_item_count         INTEGER NOT NULL DEFAULT 0 CHECK (selected_item_count >= 0),
+    termination_reason_code     TEXT,
+    termination_reason          TEXT,
+    termination_details_json    TEXT NOT NULL DEFAULT '{}',
+    confirmation_operation_id   TEXT,
+    created_at                  TEXT NOT NULL,
+    updated_at                  TEXT NOT NULL,
+    effective_at                TEXT,
+    terminated_at               TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_setoff_rounds_status ON setoff_rounds(status);
+CREATE INDEX IF NOT EXISTS idx_setoff_rounds_operator ON setoff_rounds(operator_account_id);
+
+CREATE TABLE IF NOT EXISTS setoff_items (
+    item_id                     TEXT PRIMARY KEY,
+    round_id                    TEXT NOT NULL REFERENCES setoff_rounds(round_id),
+    item_index                  INTEGER NOT NULL CHECK (item_index >= 0),
+    receivable_id               TEXT NOT NULL REFERENCES receivables(receivable_id),
+    receivable_no               TEXT NOT NULL,
+    debtor_account_id           TEXT NOT NULL,
+    creditor_account_id         TEXT NOT NULL,
+    requested_limit_cents       INTEGER NOT NULL CHECK (requested_limit_cents >= 0),
+    available_cents             INTEGER NOT NULL CHECK (available_cents >= 0),
+    offset_cents                INTEGER NOT NULL CHECK (offset_cents >= 0),
+    selected                    INTEGER NOT NULL DEFAULT 0 CHECK (selected IN (0, 1)),
+    created_at                  TEXT NOT NULL,
+    UNIQUE (round_id, item_index),
+    UNIQUE (round_id, receivable_id, creditor_account_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_setoff_items_principal
+    ON setoff_items(receivable_id, creditor_account_id, round_id);
+CREATE INDEX IF NOT EXISTS idx_setoff_items_round ON setoff_items(round_id, item_index);
 """
 
 

@@ -265,7 +265,17 @@ def cancel_agreement_tx(conn: sqlite3.Connection, agreement_id: str, data: Any) 
         "UPDATE seats SET status = 'cancelled' WHERE agreement_id = ? AND status = 'pending'",
         (agreement_id,),
     )
-    return agreement_detail(conn, agreement_id)
+    detail = agreement_detail(conn, agreement_id)
+
+    # If this agreement is the dedicated agreement of a pending set-off round,
+    # cancel/release that round in the same transaction.  Lazy import avoids a
+    # module import cycle (setoff imports settlement/service helpers).
+    from .setoff import handle_agreement_cancelled_tx
+
+    linked_round = handle_agreement_cancelled_tx(conn, agreement_id)
+    if linked_round is not None:
+        detail["setoff_round"] = linked_round
+    return detail
 
 
 # ---------------------------------------------------------------------------

@@ -135,6 +135,86 @@ def _upsert_holding(
     )
 
 
+def active_setoff_occupied_cents(
+    conn: sqlite3.Connection,
+    receivable_id: str,
+    account_id: str,
+    *,
+    exclude_round_id: Optional[str] = None,
+) -> int:
+    """Ordinary principal currently reserved by non-terminal set-off rounds.
+
+    Effective rounds have already deducted holdings, while revoked/invalid
+    rounds are terminal; therefore only rounds whose status is ``pending``
+    occupy a still-present slice of ``receivable_holdings``.
+    """
+    clauses = [
+        "i.receivable_id = ?",
+        "i.creditor_account_id = ?",
+        "r.status = 'pending'",
+    ]
+    params: list[Any] = [receivable_id, account_id]
+    if exclude_round_id:
+        clauses.append("i.round_id <> ?")
+        params.append(exclude_round_id)
+    row = conn.execute(
+        f"""
+        SELECT COALESCE(SUM(i.offset_cents), 0) AS occupied_cents
+        FROM setoff_items i
+        JOIN setoff_rounds r ON r.round_id = i.round_id
+        WHERE {' AND '.join(clauses)}
+        """,  # noqa: S608 - fixed clause structure, values parameterized
+        params,
+    ).fetchone()
+    return int(row["occupied_cents"] if row is not None else 0)
+
+
+def _holding_availability_view(
+    conn: sqlite3.Connection, receivable_id: str
+) -> list[dict[str, Any]]:
+    rows = conn.execute(
+        """
+        SELECT h.holding_id, h.account_id, h.held_cents, h.updated_at,
+               COALESCE((
+                   SELECT SUM(i.offset_cents)
+                   FROM setoff_items i
+                   JOIN setoff_rounds r ON r.round_id = i.round_id
+                   WHERE i.receivable_id = h.receivable_id
+                     AND i.creditor_account_id = h.account_id
+                     AND r.status = 'pending'
+               ), 0) AS occupied_cents
+        FROM receivable_holdings h
+        WHERE h.receivable_id = ?
+        ORDER BY h.account_id ASC
+        """,
+        (receivable_id,),
+    ).fetchall()
+    result: list[dict[str, Any]] = []
+    for row in rows:
+        held = int(row["held_cents"])
+        occupied = int(row["occupied_cents"])
+        if occupied > held:
+            # Defensive accounting guard. Receipt serialization and round
+            # revalidation should invalidate a round before this can happen.
+            occupied = held
+        result.append(
+            {
+                "holding_id": row["holding_id"],
+                "account_id": row["account_id"],
+                "held_cents": held,
+                "ordinary_held_cents": held,
+                "occupied_cents": occupied,
+                "setoff_occupied_cents": occupied,
+                "occupied_ordinary_cents": occupied,
+                "available_cents": held - occupied,
+                "unoccupied_cents": held - occupied,
+                "available_ordinary_cents": held - occupied,
+                "updated_at": row["updated_at"],
+            }
+        )
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Settlement accounts and the append-only ledger
 # ---------------------------------------------------------------------------
@@ -590,6 +670,26 @@ def register_receivable_tx(
     # lazily so queries always find the original creditor's account.
     _get_or_create_settlement_account(conn, data.original_creditor_id)
 
+    debtor_account_id = getattr(data, "resolved_debtor_account_id", None)
+    if debtor_account_id:
+        _get_account_or_404(conn, debtor_account_id)
+        conn.execute(
+            """
+            INSERT INTO receivable_debtor_bindings (
+                binding_id, receivable_id, debtor_account_id,
+                operator_account_id, operation_id, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                new_id("rdbind"),
+                receivable_id,
+                debtor_account_id,
+                data.operator_account_id,
+                data.operation_id,
+                now,
+            ),
+        )
+
     row = _get_receivable_or_404(conn, receivable_id)
     result = _receivable_dict(row)
     result["holdings"] = _holdings_view(conn, receivable_id)
@@ -819,6 +919,29 @@ def confirm_transfer_tx(
             },
         }
         return OpResult(409, view)
+
+    occupied = active_setoff_occupied_cents(
+        conn, row["receivable_id"], row["transferor_account_id"]
+    )
+    available_after_setoff = held - occupied
+    if row["amount_cents"] > available_after_setoff:
+        # A pending set-off round owns this slice.  Unlike a receipt shortfall,
+        # the occupation can be released by revocation/invalidation, so this is
+        # a retryable conflict and the transfer application stays pending.
+        raise ApiError(
+            409,
+            "TRANSFER_AMOUNT_OCCUPIED_BY_SETOFF",
+            "The transfer confirmation cannot move principal occupied by a pending debt set-off round.",
+            {
+                "transfer_id": transfer_id,
+                "receivable_id": row["receivable_id"],
+                "transferor_account_id": row["transferor_account_id"],
+                "amount_cents": row["amount_cents"],
+                "held_cents": held,
+                "occupied_cents": occupied,
+                "available_cents": max(0, available_after_setoff),
+            },
+        )
 
     # Move the principal between holdings.  Already booked allocations are not
     # moved; only the currently unrecovered slice changes ownership.
@@ -1117,6 +1240,25 @@ def register_compensation_tx(
             },
         )
 
+    occupied_by_setoff = active_setoff_occupied_cents(
+        conn, receivable_id, creditor_account_id
+    )
+    ordinary_available = ordinary_held - occupied_by_setoff
+    if data.amount_cents > ordinary_available:
+        raise ApiError(
+            409,
+            "COMPENSATION_PRINCIPAL_OCCUPIED_BY_SETOFF",
+            "Compensation cannot use ordinary principal occupied by a pending debt set-off round.",
+            {
+                "receivable_id": receivable_id,
+                "creditor_account_id": creditor_account_id,
+                "amount_cents": data.amount_cents,
+                "ordinary_unrecovered_cents": ordinary_held,
+                "occupied_by_setoff_cents": occupied_by_setoff,
+                "available_ordinary_cents": max(0, ordinary_available),
+            },
+        )
+
     outstanding = _outstanding_compensation_cents(conn, receivable_id)
     limit_cents = int(binding["compensation_limit_cents"])
     # headroom is max(0, limit-outstanding); an over-limit refund leaves the
@@ -1215,6 +1357,15 @@ def register_compensation_tx(
 # ---------------------------------------------------------------------------
 # Receipt registration and largest-remainder allocation
 # ---------------------------------------------------------------------------
+
+
+def _revalidate_setoff_rounds_after_receipt(
+    conn: sqlite3.Connection, receipt_id: str
+) -> list[str]:
+    """Run set-off coverage priority after a receipt has reduced holdings."""
+    from .setoff import revalidate_pending_rounds_after_receipt_tx
+
+    return revalidate_pending_rounds_after_receipt_tx(conn, receipt_id)
 
 
 def _register_bound_receipt_tx(
@@ -1382,7 +1533,11 @@ def _register_bound_receipt_tx(
         """,
         (new_remaining, new_remaining, receivable_id),
     )
-    return receipt_detail(conn, receipt_id)
+    result = receipt_detail(conn, receipt_id)
+    invalidated = _revalidate_setoff_rounds_after_receipt(conn, receipt_id)
+    result["invalidated_setoff_round_ids"] = invalidated
+    result["invalidated_setoff_rounds"] = invalidated
+    return result
 
 
 def register_receipt_tx(
@@ -1514,7 +1669,11 @@ def register_receipt_tx(
         (new_remaining, new_remaining, receivable_id),
     )
 
-    return receipt_detail(conn, receipt_id)
+    result = receipt_detail(conn, receipt_id)
+    invalidated = _revalidate_setoff_rounds_after_receipt(conn, receipt_id)
+    result["invalidated_setoff_round_ids"] = invalidated
+    result["invalidated_setoff_rounds"] = invalidated
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -2138,17 +2297,61 @@ def _holdings_view(conn: sqlite3.Connection, receivable_id: str) -> list[dict[st
 
 def receivable_detail(conn: sqlite3.Connection, receivable_id: str) -> dict[str, Any]:
     row = _get_receivable_or_404(conn, receivable_id)
+    compact_holdings = _holdings_view(conn, receivable_id)
+    holding_availability = _holding_availability_view(conn, receivable_id)
+    # Detail holdings carry occupied/available splits.  The compact view remains
+    # available under ``legacy_holdings`` and in the 201 registration response.
+    holdings = holding_availability
     result = _receivable_dict(row)
-    holdings = _holdings_view(conn, receivable_id)
     result["holdings"] = holdings
-    result["ordinary_holdings"] = holdings
+    result["legacy_holdings"] = compact_holdings
+    result["ordinary_holdings"] = holding_availability
+    result["holding_availability"] = holding_availability
+    result["holdings_with_availability"] = holding_availability
+    result["available_holdings"] = [
+        {
+            "account_id": item["account_id"],
+            "held_cents": item["held_cents"],
+            "occupied_cents": item["occupied_cents"],
+            "available_cents": item["available_cents"],
+        }
+        for item in holding_availability
+    ]
     ordinary_total = sum(item["held_cents"] for item in holdings)
+    occupied_ordinary_total = sum(
+        item["occupied_cents"] for item in holding_availability
+    )
+    available_ordinary_total = ordinary_total - occupied_ordinary_total
     result["ordinary_remaining_cents"] = ordinary_total
     result["ordinary_unrecovered_cents"] = ordinary_total
     result["ordinary_unrecovered_principal_cents"] = ordinary_total
     result["ordinary_outstanding_cents"] = ordinary_total
     result["ordinary_principal_remaining_cents"] = ordinary_total
     result["ordinary_principal_cents"] = ordinary_total
+    result["occupied_ordinary_cents"] = occupied_ordinary_total
+    result["ordinary_occupied_cents"] = occupied_ordinary_total
+    result["setoff_occupied_cents"] = occupied_ordinary_total
+    result["available_ordinary_cents"] = available_ordinary_total
+    result["ordinary_available_cents"] = available_ordinary_total
+    result["unoccupied_ordinary_cents"] = available_ordinary_total
+
+    debtor_binding = conn.execute(
+        "SELECT * FROM receivable_debtor_bindings WHERE receivable_id = ?",
+        (receivable_id,),
+    ).fetchone()
+    if debtor_binding is None:
+        result["debtor_binding"] = None
+        result["debtor_account_binding"] = None
+        result["bound_debtor_account_id"] = None
+        result["debtor_account_id"] = None
+    else:
+        from .setoff import debtor_binding_view
+
+        binding = debtor_binding_view(conn, debtor_binding["binding_id"])
+        result["debtor_binding"] = binding
+        result["debtor_account_binding"] = binding
+        result["bound_debtor_account_id"] = debtor_binding["debtor_account_id"]
+        result["debtor_account_id"] = debtor_binding["debtor_account_id"]
 
     binding_row = _binding_by_receivable(conn, receivable_id)
     if binding_row is None:
@@ -2195,6 +2398,34 @@ def receivable_detail(conn: sqlite3.Connection, receivable_id: str) -> dict[str,
         (receivable_id,),
     ).fetchall()
     result["receipt_ids"] = [row["receipt_id"] for row in receipts]
+
+    setoff_rounds = conn.execute(
+        """
+        SELECT r.round_id, r.status, r.total_offset_cents
+        FROM setoff_rounds r
+        WHERE EXISTS (
+            SELECT 1 FROM setoff_items i
+            WHERE i.round_id = r.round_id AND i.receivable_id = ?
+        )
+        ORDER BY r.rowid ASC
+        """,
+        (receivable_id,),
+    ).fetchall()
+    result["setoff_round_ids"] = [row["round_id"] for row in setoff_rounds]
+    result["setoff_rounds"] = [
+        {
+            "round_id": row["round_id"],
+            "status": row["status"],
+            "total_offset_cents": row["total_offset_cents"],
+        }
+        for row in setoff_rounds
+    ]
+    result["active_setoff_occupation_by_account"] = {
+        item["account_id"]: item["occupied_cents"] for item in holding_availability
+    }
+    result["available_ordinary_by_account"] = {
+        item["account_id"]: item["available_cents"] for item in holding_availability
+    }
     return result
 
 
@@ -2473,3 +2704,33 @@ create_guarantee_fund = create_guarantee_fund_tx
 register_fund_contribution = register_fund_contribution_tx
 bind_receivable_fund = bind_receivable_fund_tx
 register_compensation = register_compensation_tx
+
+
+# Lazy aliases for callers that import set-off transaction helpers from the
+# historical settlement module.  Lazy loading avoids a circular import because
+# setoff itself imports settlement helpers.
+_SETOFF_ALIAS_NAMES = {
+    "optimize_setoff_flows": "optimize_setoff_flows",
+    "optimize_setoff": "optimize_setoff_flows",
+    "maximum_setoff_plan": "optimize_setoff_flows",
+    "bind_debtor_account_tx": "bind_debtor_account_tx",
+    "register_debtor_binding_tx": "bind_debtor_account_tx",
+    "bind_receivable_debtor_account_tx": "bind_debtor_account_tx",
+    "create_setoff_round_tx": "create_round_tx",
+    "create_round_tx": "create_round_tx",
+    "confirm_setoff_round_tx": "confirm_round_tx",
+    "confirm_round_tx": "confirm_round_tx",
+    "revoke_setoff_round_tx": "revoke_round_tx",
+    "revoke_round_tx": "revoke_round_tx",
+    "revalidate_setoff_rounds_after_receipt_tx": "revalidate_pending_rounds_after_receipt_tx",
+    "setoff_round_view": "round_view",
+    "list_setoff_rounds": "list_rounds",
+}
+
+
+def __getattr__(name: str) -> Any:
+    if name in _SETOFF_ALIAS_NAMES:
+        from . import setoff
+
+        return getattr(setoff, _SETOFF_ALIAS_NAMES[name])
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

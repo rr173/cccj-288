@@ -28,6 +28,7 @@ signing_backend/
   main.py          # FastAPI HTTP 路由
   service.py       # 阶段、委托、撤销、挑战、落签、取消、凭证核心事务
   settlement.py    # 应收款、本金转让、到账分款、退票冲回、结算账户与划款事务
+  setoff.py        # 债务人账号绑定、多方债务抵销优化、占用、签署、失效优先级与确认
   db.py            # SQLite schema、连接、BEGIN IMMEDIATE 事务
   idempotency.py   # 持久化 operation_id 去重/重放
   security.py      # canonical JSON、SHA-256、base64、Ed25519 校验
@@ -37,13 +38,16 @@ scripts/
   signctl.py       # 可运行的 keygen/register/sign-challenge/verify CLI
   demo_http.py     # 完整签署流程 HTTP 演示
   demo_settlement.py  # 应收款结算完整 HTTP 演示
+  demo_setoff.py      # 多方债务抵销完整 HTTP 演示
 tests/
   test_backend.py  # 阶段、委托、旧挑战、去重、重启、一签一席、正文改版
   test_race.py     # 取消与最后签名的并发竞争
   test_settlement.py  # 分款取整、转让终止/生效、退票冲回、待扣回、并发、重启
   test_guarantee_fund.py # 担保基金、代偿批次、追偿顺序、退票反冲、缺口、限额与并发
+  test_setoff.py   # 债务人绑定、最大平衡优化、占用、签署确认、到账覆盖优先级、撤销/失效/重启
 run_demo.sh             # 自动起本机 uvicorn、跑签署 HTTP 演示、再独立验签
 run_settlement_demo.sh  # 自动起本机 uvicorn、跑应收款结算 HTTP 演示
+run_setoff_demo.sh      # 自动起本机 uvicorn、跑多方债务抵销 HTTP 演示
 verify_certificate.py
 requirements.txt
 ```
@@ -70,6 +74,12 @@ pip install -r requirements.txt
 
 ```bash
 ./run_settlement_demo.sh
+```
+
+一键演示（多方债务抵销）：
+
+```bash
+./run_setoff_demo.sh
 ```
 
 `run_demo.sh` 会：
@@ -659,11 +669,157 @@ POST /receipts/{receipt_id}/refunds
 
 绑定前的旧到账没有 `receipt_guarantee_allocations` 记录，其退票继续走原有普通分款冲回逻辑；未绑定基金的应收完全保持原行为。
 
+### 7. 多方债务抵销
+
+多家企业互相欠款时，运营可在参与账号签署后让等额债权债务对销，只把未抵销本金留给原有到账/转让/代偿流程。**抵销确认不产生到账、结算账户入款/划款或基金流水。**
+
+#### 7.1 一次性绑定文字债务人到登记账号
+
+现有应收的 `debtor` 仍是自由文字。只有登记该应收的运营账号可把它一次性绑定到一个已登记账号；系统不按名称猜配：
+
+```http
+POST /receivables/{receivable_id}/debtor-binding
+```
+
+```json
+{
+  "operation_id": "debtor-bind-1",
+  "operator_account_id": "operator",
+  "debtor_account_id": "bob"
+}
+```
+
+重复绑定返回 `RECEIVABLE_DEBTOR_ALREADY_BOUND`，运营账号不符返回 `NOT_RECEIVABLE_OPERATOR`。也支持 `PUT`、`/debtor-account-binding`、`/bind-debtor`、`POST /debtor-bindings` 等别名；登记应收时也可直接传 `debtor_account_id`。
+
+#### 7.2 发起最大平衡抵销轮
+
+```http
+POST /setoff-rounds
+```
+
+```json
+{
+  "operation_id": "setoff-create-1",
+  "operator_account_id": "operator",
+  "items": [
+    {
+      "receivable_id": "recv_ab",
+      "creditor_account_id": "alice",
+      "limit_cents": 900
+    },
+    {
+      "receivable_id": "recv_bc",
+      "creditor_account_id": "bob",
+      "limit_cents": 800
+    },
+    {
+      "receivable_id": "recv_ca",
+      "creditor_account_id": "carol",
+      "limit_cents": 700
+    }
+  ]
+}
+```
+
+服务逐项校验：
+
+- 每项应收均由 `operator_account_id` 登记，且已绑定登记债务人账号；
+- `creditor_account_id` 必须是该应收当前持有正额普通本金的债权人；
+- 同一 `(receivable_id, creditor_account_id)` 不重复；
+- 绑定债务人与当前债权人为同一账号的自我债权不进入正额方案；
+- 每项容量为 `min(本轮上限, held_cents - 其他 pending 轮占用)`；
+- 基金追偿批次不属于普通 holdings，因此不会被纳入。
+
+把每个份额看成一条“绑定债务人账号 → 当前债权人账号”的有向边，抵销额是边流量；每个账号作为债务人的应付抵销合计必须等于作为债权人的应收放弃合计，即流量守恒。优化器求所有份额抵销额总和最大的整数分解；最大总额并列时，严格按 `items` 清单顺序先最大化第一项、再第二项，依此类推。纯函数 `signing_backend.setoff.optimize_setoff_flows` 有随机小图全枚举测试。
+
+若最大总额为 0，接口返回 `409 NO_POSITIVE_SETOFF_PLAN`，不创建轮次或协议。成功时：
+
+- 只占用优化选中的正额本金，而不是各项上限；
+- 创建状态为 `pending` 的轮次和一份立即 `active` 的专用协议；
+- 协议 canonical JSON 逐项写入 `round_id`、应收 ID/编号、债务人账号、债权人账号和抵销额；
+- 每个有正额且守恒的参与账号恰好一个单阶段签署席位，完全复用现有挑战、Ed25519 签名、委托/取消和凭证流程。
+
+兼容路径包括 `/setoffs`、`/debt-setoffs`、`/offset-rounds`、`/multilateral-setoff-rounds` 等；请求列表也可命名为 `shares`、`receivable_shares`、`setoff_items`。
+
+#### 7.3 查看占用、轮次和协议
+
+```http
+GET /setoff-rounds
+GET /setoff-rounds/{round_id}
+GET /receivables/{receivable_id}/setoff-rounds
+GET /receivables/{receivable_id}
+```
+
+轮次视图含 `status`（`pending / effective / revoked / invalid`，并提供 `state`、`round_status`、布尔状态别名）、`agreement`、`agreement_status`、`signed_count`、逐项 `items[].offset_cents`、每个账号的应付/应收合计与席位、`can_confirm` 和终止原因。
+
+应收详情的每个 `holdings` 行额外给出：
+
+```json
+{
+  "account_id": "alice",
+  "held_cents": 1000,
+  "occupied_cents": 600,
+  "available_cents": 400
+}
+```
+
+顶层也汇总 `occupied_ordinary_cents`、`available_ordinary_cents`，并提供 `holding_availability`、`setoff_round_ids` 等别名。登记应收的 201 响应仍保持精简 holdings 行。
+
+#### 7.4 确认生效，且同一方案只能生效一次
+
+所有席位签完后：
+
+```http
+POST /setoff-rounds/{round_id}/confirmation
+{"operation_id":"setoff-confirm-1","operator_account_id":"operator"}
+```
+
+协议未完成时返回 `SETOFF_AGREEMENT_NOT_COMPLETED`，轮次保持 `pending`。确认事务重新检查轮次仍有效且本金可覆盖，然后：
+
+1. 对每个 `(应收, 债权人)` 一次性减记 `offset_cents` holdings；
+2. 按应收汇总并减少 `receivables.remaining_cents`；
+3. 轮次置为 `effective`，记录确认 operation ID；
+4. 不写 `receipts`、`receipt_allocations`、`settlement_accounts`、`settlement_ledger` 或基金流水。
+
+相同 `operation_id` 重放首次结果；新 operation ID 对已生效轮次确认返回 `SETOFF_ROUND_ALREADY_EFFECTIVE`。
+
+#### 7.5 占用期间的转让、代偿、到账与覆盖优先级
+
+- 转让申请仍可按原规则发起和签署，但运营确认时若金额超过 `held_cents - pending setoff occupied`，返回 `TRANSFER_AMOUNT_OCCUPIED_BY_SETOFF`，转让保持 `pending`，占用释放后可用新 operation ID 再确认。
+- 代偿金额不能超过未占用普通本金，否则返回 `COMPENSATION_PRINCIPAL_OCCUPIED_BY_SETOFF`；基金限额、可用资金等原校验不变。
+- 真实到账仍按原优先级（绑定基金时先追偿批次）和各债权人**完整 held_cents** 最大余数法分款，不因为 setoff 占用而改变分款权重。
+- 到账减记 holdings 后，在同一到账事务内按轮次 SQLite `rowid`（发起先后）重估所有 `pending` 轮：
+  - 某轮每个份额都不超过“当前 holding − 更早保留轮已预留额”才保留；
+  - 否则整轮置为 `invalid`，原因码 `SETOFF_COVERAGE_LOST`，明细含每个缺口；
+  - 失效轮的所有 item 占用一起释放，不缩减已送签金额；
+  - 若协议仍为 `active/draft`，同事务取消协议和未签席位；若已 `completed`，凭证保留但轮次不能确认。
+
+之后原到账退票只按原分款行恢复本金，**不复活** `invalid` 轮，也不冲销已经 `effective` 的抵销。
+
+#### 7.6 撤销与原协议入口取消
+
+```http
+POST /setoff-rounds/{round_id}/revocation
+{"operation_id":"setoff-revoke-1","operator_account_id":"operator","reason":"..."}
+```
+
+未生效轮可由发起运营撤销；若专用协议尚未完成，会一并取消以阻止继续签署。也可以走原入口：
+
+```http
+POST /agreements/{agreement_id}/cancellation
+{"operation_id":"cancel-1","initiator_account_id":"operator"}
+```
+
+取消事务在同一 `BEGIN IMMEDIATE` 中把关联轮置为 `revoked` 并释放全部占用。撤销/失效后确认分别返回 `SETOFF_ROUND_REVOKED` / `SETOFF_ROUND_INVALID`。
+
 ### 查询接口
 
 | 方法与路径 | 内容 |
 | --- | --- |
-| `GET /receivables` / `GET /receivables/{id}` | 应收列表/详情，含普通未收本金、普通 holdings、担保绑定、各代偿/追偿批次余额、转让与到账 id |
+| `GET /receivables` / `GET /receivables/{id}` | 应收列表/详情，含普通未收本金、holdings 的占用/可用拆分、债务人绑定、担保绑定、各代偿/追偿批次余额、转让/到账/抵销轮 id |
+| `POST /receivables/{id}/debtor-binding` / `GET /debtor-bindings/{id}` | 一次性把文字债务人绑定到已登记债务人账号 |
+| `POST /setoff-rounds` / `GET /setoff-rounds` / `GET /setoff-rounds/{id}` | 发起/列表/查询多方抵销轮；列表支持 `?receivable_id=...&operator_account_id=...`，另有 `/setoffs`、`/offset-rounds` 等别名 |
+| `POST /setoff-rounds/{id}/confirmation` / `.../revocation` | 签完后一次性减记生效，或撤销未生效轮并释放占用 |
 | `POST /guarantee-funds` / `GET /guarantee-funds` / `GET /guarantee-funds/{id}` | 创建/列表/详情基金；详情含可用资金、缺口、累计金额、注资记录和基金流水（`/funds` 为别名） |
 | `POST /guarantee-funds/{id}/contributions` | 登记注资；有缺口时先补缺口（另有 `/top-ups`、`/capital` 别名） |
 | `POST /receivables/{id}/guarantee-binding` | 绑定唯一基金和固定代偿限额（`/fund-binding` 为别名） |
@@ -676,7 +832,7 @@ POST /receipts/{receipt_id}/refunds
 ### 幂等、并发与重启
 
 - 每个写接口都以 `(scope, operation_id)` 持久化请求指纹、状态码和响应体；同 ID 同内容重放首次结果，同 ID 换内容返回 `IDEMPOTENCY_REQUEST_CONFLICT`。到账/退票另有渠道流水号唯一约束兜底。
-- 到账、退票、转让确认、划款、基金注资、绑定和代偿都在单条 `BEGIN IMMEDIATE` 事务内完成全部基金、应收、批次、结算账户与流水改动，SQLite 写锁把并发事务串行化，因此新操作与原结算操作并发时结果仍等价于某个串行顺序，任何失败整体回滚，不会只更新一边。
+- 到账、退票、转让确认、划款、基金注资、绑定、代偿、债务人绑定、抵销轮发起/确认/撤销以及原协议取消钩子都在单条 `BEGIN IMMEDIATE` 事务内完成相关改动，SQLite 写锁把并发事务串行化，因此抵销轮与签署、到账、转让/代偿和本金改动共同等价于某个串行顺序，任何失败整体回滚，不会只更新一边。
 - 转让“不足额终止”是一个**终局业务决定**：服务在同一事务内把申请置为 `terminated` 并以 409 返回（而不是抛错触发回滚），保证终止状态可靠落库且重放一致。
 - 所有状态和 ledger 都在 SQLite 中，重启后状态、流水、幂等记录仍可核对；测试会重建 app 验证重放与流水账重算。
 
@@ -688,6 +844,12 @@ POST /receipts/{receipt_id}/refunds
 python3 -m pytest tests/test_guarantee_fund.py -q
 ```
 
+只运行多方抵销专项测试：
+
+```bash
+python3 -m pytest tests/test_setoff.py -q
+```
+
 运行全部测试：
 
 ```bash
@@ -696,9 +858,12 @@ python3 -m pytest -q
 
 ```bash
 ./run_settlement_demo.sh
+./run_setoff_demo.sh
 ```
 
-脚本会起本机 uvicorn，走真实 HTTP 演示：登记应收、申请并签署转让协议、运营确认、两笔到账（含重试与流水号冲突拒绝）、划款、分次退票（含可划余额不足转待扣回）、新分款抵扣欠额，并落盘查询快照。
+结算脚本会起本机 uvicorn，走真实 HTTP 演示：登记应收、申请并签署转让协议、运营确认、两笔到账（含重试与流水号冲突拒绝）、划款、分次退票（含可划余额不足转待扣回）、新分款抵扣欠额，并落盘查询快照。
+
+抵销脚本会演示三笔首尾相接应收的绑定、最大平衡优化、占用/可用查询、三个账号通过现有挑战流程签署、运营确认后一次性减记，并校验没有结算账户余额或流水产生。
 
 ## 自动化测试说明
 
@@ -706,7 +871,7 @@ python3 -m pytest -q
 python3 -m pytest -q
 ```
 
-覆盖（共 33 个测试，含担保基金专项、并发多轮与重启）：
+覆盖（共 46 个测试，含多方抵销、担保基金专项、并发多轮与重启）：
 
 - 两阶段门和完整凭证验证；
 - 委托、连续委托、环拒绝、越权委托拒绝；
@@ -731,7 +896,12 @@ python3 -m pytest -q
 - 退票导致超限额时保留历史并阻止新增代偿，追偿恢复额度后可继续；转让只能移动普通未收本金；
 - 绑定前旧到账和未绑定应收保持原分款/退票规则；旧 `settlement_ledger` CHECK 表会在启动时幂等迁移；
 - 担保基金重启重放不重复注资/代偿，20 并发代偿不会突破基金可用资金；
-- 到账/退票/转让确认/划款并发等价于某串行顺序，无半写；同操作 ID 高并发只入账一次。
+- 债务人账号一次性绑定、越权/重复绑定拒绝，应收详情区分普通本金的占用与可用部分；
+- 多方抵销：循环图最大平衡额、清单顺序 lex tie-break（3000 组随机小图对拍全枚举）、自我债权排除、重复组合拒绝、无正额方案不建协议；
+- 抵销发起即占用选中本金并生成专用协议和每账号一席位；确认才一次性减记 holdings/remaining，且无到账、账户或基金流水；
+- 占用阻止转让确认/代偿动用被占部分；到账仍按完整 holdings 分款并按发起先后淘汰无法足额覆盖的整轮，释放其他应收占用；
+- 撤销或原协议取消释放占用；失效/撤销后不能继续签，已完成凭证保留但不能确认；退票不复活失效轮、不反冲已生效抵销；
+- 抵销轮重启后 operation ID 重放不重复发起、释放或扣减；到账/退票/转让确认/划款并发等价于某串行顺序，无半写；同操作 ID 高并发只入账一次。
 
 ## 生产化前仍需补充的事项
 
