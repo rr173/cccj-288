@@ -27,6 +27,7 @@
 signing_backend/
   main.py          # FastAPI HTTP 路由
   service.py       # 阶段、委托、撤销、挑战、落签、取消、凭证核心事务
+  settlement.py    # 应收款、本金转让、到账分款、退票冲回、结算账户与划款事务
   db.py            # SQLite schema、连接、BEGIN IMMEDIATE 事务
   idempotency.py   # 持久化 operation_id 去重/重放
   security.py      # canonical JSON、SHA-256、base64、Ed25519 校验
@@ -34,18 +35,21 @@ signing_backend/
 scripts/
   client_lib.py    # 请求侧密钥库和 HTTP 客户端（私钥只在这里读取/签名）
   signctl.py       # 可运行的 keygen/register/sign-challenge/verify CLI
-  demo_http.py     # 完整 HTTP 演示
+  demo_http.py     # 完整签署流程 HTTP 演示
+  demo_settlement.py  # 应收款结算完整 HTTP 演示
 tests/
   test_backend.py  # 阶段、委托、旧挑战、去重、重启、一签一席、正文改版
   test_race.py     # 取消与最后签名的并发竞争
-run_demo.sh        # 自动起本机 uvicorn、跑 HTTP 演示、再独立验签
+  test_settlement.py  # 分款取整、转让终止/生效、退票冲回、待扣回、并发、重启
+run_demo.sh             # 自动起本机 uvicorn、跑签署 HTTP 演示、再独立验签
+run_settlement_demo.sh  # 自动起本机 uvicorn、跑应收款结算 HTTP 演示
 verify_certificate.py
 requirements.txt
 ```
 
 ## 快速运行
 
-当前工作区已经创建 `.venv` 并安装依赖。全新环境可用：
+依赖：Python 3.11+，并安装 `requirements.txt`（FastAPI、uvicorn、cryptography、httpx、pytest）。推荐使用虚拟环境：
 
 ```bash
 python3 -m venv .venv
@@ -53,13 +57,21 @@ python3 -m venv .venv
 pip install -r requirements.txt
 ```
 
-一键演示：
+若不建虚拟环境，也可把依赖装到当前用户环境（例如 `pip install --user -r requirements.txt`）；演示脚本会优先使用可用的 `.venv`，否则回退到 `python3`。
+
+一键演示（原有签署流程）：
 
 ```bash
 ./run_demo.sh
 ```
 
-脚本会：
+一键演示（应收款结算）：
+
+```bash
+./run_settlement_demo.sh
+```
+
+`run_demo.sh` 会：
 
 1. 选择空闲本机端口；
 2. 用临时 SQLite 数据库启动 uvicorn；
@@ -393,13 +405,162 @@ GET /agreements/{agreement_id}/certificate
   --registry examples/sample-registry.json
 ```
 
+## 应收款结算（在签署服务之上扩展）
+
+在保留上述全部签署流程的前提下，服务额外提供应收款结算能力。**只模拟单币种款项，所有金额都是整数分（cent），不接银行或任何真实支付渠道。** 全部写操作仍走 `BEGIN IMMEDIATE` 事务和持久化 `operation_id` 幂等，因此到账、退票、转让确认、划款并发时，结果等价于某个串行顺序，且失败不会只更新一边。
+
+### 领域模型与不变量
+
+- **应收款 `receivables`**：运营在一份**已完成（completed）**的协议下登记，含应收编号、债务人、原债权人、整数分本金；`remaining_cents` 是当前未收回本金。
+- **持有份额 `receivable_holdings`**：每个债权人对该笔应收当前持有的未收本金。转让在份额之间移动，到账减少份额，退票按原收款人恢复份额。恒等式：`remaining_cents = SUM(held_cents)`。
+- **转让申请 `transfer_applications`**：状态 `pending / effective / terminated`，绑定本笔应收、转出人、受让人、金额和一份自动生成的转让协议。
+- **到账 `receipts` 与分款行 `receipt_allocations`**：一笔到账的不可变分款明细，记录每人毛份额、已冲回额、抵扣待扣回额和净入账额。
+- **退票 `refunds` 与冲回行 `refund_reversals`**：可对一笔原到账分次退票，冲回行记录从可划余额扣了多少、记为待扣回多少。
+- **结算账户 `settlement_accounts` + 流水账 `settlement_ledger`**：每个债权人一个跨应收款账户，含可划余额、待扣回、累计分款/冲回/已划。所有余额变动都追加一条 ledger，重启后可仅凭流水账重算并核对余额。
+
+### 1. 登记应收款
+
+```http
+POST /receivables
+```
+
+```json
+{
+  "operation_id": "recv-1",
+  "receivable_no": "AR-001",
+  "agreement_id": "agr_...",
+  "operator_account_id": "operator",
+  "debtor": "债务人-甲",
+  "original_creditor_id": "alice",
+  "principal_cents": 10000
+}
+```
+
+仅当 `agreement_id` 对应协议为 `completed` 时允许；应收编号全局唯一，重复编号返回 `RECEIVABLE_NO_CONFLICT`。登记后原债权人持有全部本金。
+
+### 2. 申请本金转让并走现有签署流程
+
+```http
+POST /receivables/{receivable_id}/transfers
+```
+
+```json
+{
+  "operation_id": "trf-apply-1",
+  "transferor_account_id": "alice",
+  "transferee_account_id": "carol",
+  "amount_cents": 400
+}
+```
+
+服务生成一份两席位（转让人、受让人）、单阶段的转让协议，正文以 canonical JSON 绑定本笔应收、转出人、受让人、金额。两方**用既有挑战/签署接口**完成签署。申请**不冻结本金**，债务人在签署期间仍可付款。
+
+运营确认：
+
+```http
+POST /transfers/{transfer_id}/confirmation
+```
+
+```json
+{"operation_id": "trf-confirm-1", "operator_account_id": "operator"}
+```
+
+裁决规则：
+
+- 只认该申请绑定的、**已完成**的转让协议；协议未签完返回 `TRANSFER_AGREEMENT_NOT_COMPLETED`，**不作终止判定**，申请保持 `pending`。
+- 协议已完成后，按确认当时转出人**未收本金**判定：足额则在份额间移动本金，状态 `effective`；不足则**整笔转让终止**（`TRANSFER_INSUFFICIENT_PRINCIPAL`，HTTP 409 但终止决定已落库），即使后来退票恢复本金也**不会自动复活**，再次确认返回 `TRANSFER_TERMINATED`。
+- 一次申请只能生效一次：重复生效确认返回 `TRANSFER_ALREADY_EFFECTIVE`。
+- 已入账的分款不随转让移动，只移动当前未收本金。
+
+### 3. 登记到账与最大余数法分款
+
+```http
+POST /receivables/{receivable_id}/receipts
+```
+
+```json
+{
+  "operation_id": "rcpt-1",
+  "channel_serial_no": "CH-0001",
+  "amount_cents": 300,
+  "operator_account_id": "operator"
+}
+```
+
+- 金额不得超过该笔应收剩余本金，否则 `RECEIPT_EXCEEDS_REMAINING`。
+- 按**到账前**各债权人持有未收本金比例分款：先各自取整分（`floor(total*weight/sum)`），余下的分按小数余数从大到小各补一分，余数相同按账号升序。分款总和严格等于到账金额。
+- 对应份额本金视为收回（减少 holdings），毛份额进入收款人结算账户；若该账户有待扣回欠额，先抵扣欠额，剩余才净入可划余额。
+- 渠道流水号全局唯一：同流水号换内容提交返回 `CHANNEL_SERIAL_CONFLICT`；相同请求（含相同 `operation_id`）重试返回首次结果，不重复记账。
+
+### 4. 分次退票与原行冲回
+
+```http
+POST /receipts/{receipt_id}/refunds
+```
+
+```json
+{
+  "operation_id": "rfnd-1",
+  "channel_serial_no": "RF-0001",
+  "amount_cents": 150,
+  "operator_account_id": "operator"
+}
+```
+
+- 可对一笔原到账分次登记，累计不得超过该笔到账金额，否则 `REFUND_EXCEEDS_RECEIPT`；退票流水号同样全局唯一。
+- 按**原分款金额从大到小**（同额按账号升序）依次冲回各收款人尚未冲回的部分，并把对应本金**恢复给这些原收款人**，**不按退票当时的债权比例重算**（转让后的新债权人不会收到别人原分款的退票）。
+- 冲回先扣原收款人可划余额；不足部分记为该账号**待扣回金额**。此后该账号的新分款先抵扣欠额；已经发生的划款记录不改写。
+
+### 5. 划款
+
+```http
+POST /disbursements
+```
+
+```json
+{
+  "operation_id": "dsb-1",
+  "account_id": "alice",
+  "amount_cents": 100,
+  "operator_account_id": "operator",
+  "note": "实际划款"
+}
+```
+
+划款不能超过账户当前可划余额，否则 `INSUFFICIENT_AVAILABLE_BALANCE`；划款成功生成不可变划款记录并减少可划余额。
+
+### 查询接口
+
+| 方法与路径 | 内容 |
+| --- | --- |
+| `GET /receivables` / `GET /receivables/{id}` | 应收列表/详情，含各债权人**当下未收本金** holdings、转让与到账 id |
+| `GET /transfers?receivable_id=...` / `GET /transfers/{id}` | 转让申请及绑定协议签署进度、生效/终止状态 |
+| `GET /receipts/{id}` | 每笔到账的**分款明细**、每行已冲回/未冲回、关联退票 |
+| `GET /refunds/{id}` | 每笔退票的**冲回明细**、余额扣减与待扣回拆分 |
+| `GET /settlement-accounts` / `GET /settlement-accounts/{id}` | 可划余额、待扣回、累计分款/冲回/已划、**已划记录**与完整 ledger 流水 |
+
+### 幂等、并发与重启
+
+- 每个写接口都以 `(scope, operation_id)` 持久化请求指纹、状态码和响应体；同 ID 同内容重放首次结果，同 ID 换内容返回 `IDEMPOTENCY_REQUEST_CONFLICT`。到账/退票另有渠道流水号唯一约束兜底。
+- 到账、退票、转让确认、划款都在单条 `BEGIN IMMEDIATE` 事务内完成全部余额/份额/流水改动，SQLite 写锁把并发事务串行化，因此结果等价于某个串行顺序，任何失败整体回滚，不会只更新一边。
+- 转让“不足额终止”是一个**终局业务决定**：服务在同一事务内把申请置为 `terminated` 并以 409 返回（而不是抛错触发回滚），保证终止状态可靠落库且重放一致。
+- 所有状态和 ledger 都在 SQLite 中，重启后状态、流水、幂等记录仍可核对；测试会重建 app 验证重放与流水账重算。
+
+### 结算演示与测试
+
+```bash
+./run_settlement_demo.sh
+```
+
+脚本会起本机 uvicorn，走真实 HTTP 演示：登记应收、申请并签署转让协议、运营确认、两笔到账（含重试与流水号冲突拒绝）、划款、分次退票（含可划余额不足转待扣回）、新分款抵扣欠额，并落盘查询快照。
+
 ## 自动化测试说明
 
 ```bash
-.venv/bin/python -m pytest -q
+python3 -m pytest -q
 ```
 
-覆盖：
+覆盖（共 23 个测试，含并发多轮与重启）：
 
 - 两阶段门和完整凭证验证；
 - 委托、连续委托、环拒绝、越权委托拒绝；
@@ -410,7 +571,15 @@ GET /agreements/{agreement_id}/certificate
 - operation ID 同内容重放、换内容冲突；
 - 取消后正文改版必须创建新协议，旧签名不能验证新正文；
 - 重启后状态、幂等和挑战消费状态仍有效；
-- 单轮和多轮重复的“取消 vs 最后签名”竞争一致性。
+- 单轮和多轮重复的“取消 vs 最后签名”竞争一致性；
+- 应收只能登记在已完成协议下、应收编号唯一；
+- 最大余数法分款（取整 + 余数补分 + 同余数账号升序），纯函数对 1..1000 全量校验总和守恒；
+- 转让：未签完不终止、不足额整笔终止且退票后不复活、生效只移动未收本金且仅一次；
+- 退票：分次累计上限、按原分款行（金额降序、同额账号升序）冲回并把本金恢复给原收款人；
+- 待扣回：可划余额不足转欠额、新分款先抵扣、已划记录不改写、划款不得超可划余额；
+- 渠道流水号换内容拒绝、相同请求重试不重复记账；
+- 重启后转让终止状态、余额与流水账仍可核对（ledger 重算余额、本金/分款/冲回守恒）；
+- 到账/退票/转让确认/划款并发等价于某串行顺序，无半写；同操作 ID 高并发只入账一次。
 
 ## 生产化前仍需补充的事项
 

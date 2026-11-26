@@ -9,7 +9,7 @@ from typing import Any, Iterator
 from fastapi import Depends, FastAPI, Request
 from fastapi.responses import Response
 
-from . import service
+from . import service, settlement
 from .db import connect, init_db
 from .errors import ApiError, api_error_handler
 from .idempotency import OpResult, idempotent
@@ -19,9 +19,15 @@ from .schemas import (
     CancelRequest,
     ChallengeRequest,
     DelegateRequest,
+    DisbursementRequest,
+    ReceiptRegisterRequest,
+    ReceivableRegisterRequest,
+    RefundRegisterRequest,
     RevokeRequest,
     SendRequest,
     SignatureRequest,
+    TransferApplyRequest,
+    TransferConfirmRequest,
 )
 
 
@@ -232,6 +238,118 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
     @app.get("/agreements/{agreement_id}/certificate")
     def certificate(agreement_id: str, conn: Any = Depends(get_db)) -> dict[str, Any]:
         return service.get_certificate(conn, agreement_id)
+
+    # ------------------------------------------------------------------
+    # Receivable settlement (应收款结算)
+    # ------------------------------------------------------------------
+
+    @app.post("/receivables")
+    def register_receivable(data: ReceivableRegisterRequest, conn: Any = Depends(get_db)) -> Response:
+        result = idempotent(
+            conn,
+            "receivable.register",
+            data.operation_id,
+            {"body": data.model_dump()},
+            lambda c: OpResult(201, settlement.register_receivable_tx(c, data)),
+        )
+        return result.to_response()
+
+    @app.get("/receivables")
+    def list_receivables(conn: Any = Depends(get_db)) -> dict[str, Any]:
+        return settlement.list_receivables(conn)
+
+    @app.get("/receivables/{receivable_id}")
+    def get_receivable(receivable_id: str, conn: Any = Depends(get_db)) -> dict[str, Any]:
+        return settlement.receivable_detail(conn, receivable_id)
+
+    @app.post("/receivables/{receivable_id}/transfers")
+    def apply_transfer(
+        receivable_id: str, data: TransferApplyRequest, conn: Any = Depends(get_db)
+    ) -> Response:
+        result = idempotent(
+            conn,
+            "transfer.apply",
+            data.operation_id,
+            {"receivable_id": receivable_id, "body": data.model_dump()},
+            lambda c: OpResult(201, settlement.apply_transfer_tx(c, receivable_id, data)),
+        )
+        return result.to_response()
+
+    @app.get("/transfers")
+    def list_transfers(
+        receivable_id: str | None = None, conn: Any = Depends(get_db)
+    ) -> dict[str, Any]:
+        return settlement.list_transfers(conn, receivable_id)
+
+    @app.get("/transfers/{transfer_id}")
+    def get_transfer(transfer_id: str, conn: Any = Depends(get_db)) -> dict[str, Any]:
+        return settlement.transfer_view(conn, transfer_id)
+
+    @app.post("/transfers/{transfer_id}/confirmation")
+    def confirm_transfer(
+        transfer_id: str, data: TransferConfirmRequest, conn: Any = Depends(get_db)
+    ) -> Response:
+        result = idempotent(
+            conn,
+            "transfer.confirm",
+            data.operation_id,
+            {"transfer_id": transfer_id, "body": data.model_dump()},
+            lambda c: settlement.confirm_transfer_tx(c, transfer_id, data),
+        )
+        return result.to_response()
+
+    @app.post("/receivables/{receivable_id}/receipts")
+    def register_receipt(
+        receivable_id: str, data: ReceiptRegisterRequest, conn: Any = Depends(get_db)
+    ) -> Response:
+        result = idempotent(
+            conn,
+            "receipt.register",
+            data.operation_id,
+            {"receivable_id": receivable_id, "body": data.model_dump()},
+            lambda c: OpResult(201, settlement.register_receipt_tx(c, receivable_id, data)),
+        )
+        return result.to_response()
+
+    @app.get("/receipts/{receipt_id}")
+    def get_receipt(receipt_id: str, conn: Any = Depends(get_db)) -> dict[str, Any]:
+        return settlement.receipt_detail(conn, receipt_id)
+
+    @app.post("/receipts/{receipt_id}/refunds")
+    def register_refund(
+        receipt_id: str, data: RefundRegisterRequest, conn: Any = Depends(get_db)
+    ) -> Response:
+        result = idempotent(
+            conn,
+            "refund.register",
+            data.operation_id,
+            {"receipt_id": receipt_id, "body": data.model_dump()},
+            lambda c: OpResult(201, settlement.register_refund_tx(c, receipt_id, data)),
+        )
+        return result.to_response()
+
+    @app.get("/refunds/{refund_id}")
+    def get_refund(refund_id: str, conn: Any = Depends(get_db)) -> dict[str, Any]:
+        return settlement.refund_detail(conn, refund_id)
+
+    @app.post("/disbursements")
+    def register_disbursement(data: DisbursementRequest, conn: Any = Depends(get_db)) -> Response:
+        result = idempotent(
+            conn,
+            "disbursement.register",
+            data.operation_id,
+            {"body": data.model_dump()},
+            lambda c: OpResult(201, settlement.register_disbursement_tx(c, data)),
+        )
+        return result.to_response()
+
+    @app.get("/settlement-accounts")
+    def list_settlement_accounts(conn: Any = Depends(get_db)) -> dict[str, Any]:
+        return settlement.list_settlement_accounts(conn)
+
+    @app.get("/settlement-accounts/{account_id}")
+    def get_settlement_account(account_id: str, conn: Any = Depends(get_db)) -> dict[str, Any]:
+        return settlement.settlement_account_view(conn, account_id)
 
     return app
 

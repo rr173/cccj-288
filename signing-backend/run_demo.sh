@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
 
-if [[ -x "$ROOT/.venv/bin/python" ]]; then
+if [[ -x "$ROOT/.venv/bin/python" ]] && "$ROOT/.venv/bin/python" -c "import uvicorn" >/dev/null 2>&1; then
   PY="$ROOT/.venv/bin/python"
 else
   PY="${PYTHON:-python3}"

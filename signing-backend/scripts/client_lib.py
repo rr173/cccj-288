@@ -276,6 +276,149 @@ class SigningClient:
     def certificate(self, agreement_id: str) -> dict[str, Any]:
         return self.request_json("GET", f"/agreements/{agreement_id}/certificate")
 
+    # ------------------------------------------------------------------
+    # Receivable settlement (应收款结算)
+    # ------------------------------------------------------------------
+
+    def register_receivable(
+        self,
+        *,
+        receivable_no: str,
+        agreement_id: str,
+        operator: str,
+        debtor: str,
+        original_creditor: str,
+        principal_cents: int,
+        op_id: Optional[str] = None,
+    ) -> dict[str, Any]:
+        return self.request_json(
+            "POST",
+            "/receivables",
+            {
+                "operation_id": op_id or operation_id("recv"),
+                "receivable_no": receivable_no,
+                "agreement_id": agreement_id,
+                "operator_account_id": operator,
+                "debtor": debtor,
+                "original_creditor_id": original_creditor,
+                "principal_cents": principal_cents,
+            },
+        )
+
+    def list_receivables(self) -> dict[str, Any]:
+        return self.request_json("GET", "/receivables")
+
+    def get_receivable(self, receivable_id: str) -> dict[str, Any]:
+        return self.request_json("GET", f"/receivables/{receivable_id}")
+
+    def apply_transfer(
+        self,
+        receivable_id: str,
+        *,
+        transferor: str,
+        transferee: str,
+        amount_cents: int,
+        op_id: Optional[str] = None,
+    ) -> dict[str, Any]:
+        return self.request_json(
+            "POST",
+            f"/receivables/{receivable_id}/transfers",
+            {
+                "operation_id": op_id or operation_id("trf"),
+                "transferor_account_id": transferor,
+                "transferee_account_id": transferee,
+                "amount_cents": amount_cents,
+            },
+        )
+
+    def get_transfer(self, transfer_id: str) -> dict[str, Any]:
+        return self.request_json("GET", f"/transfers/{transfer_id}")
+
+    def confirm_transfer(
+        self, transfer_id: str, operator: str, op_id: Optional[str] = None
+    ) -> dict[str, Any]:
+        return self.request_json(
+            "POST",
+            f"/transfers/{transfer_id}/confirmation",
+            {
+                "operation_id": op_id or operation_id("trf-confirm"),
+                "operator_account_id": operator,
+            },
+        )
+
+    def register_receipt(
+        self,
+        receivable_id: str,
+        *,
+        channel_serial_no: str,
+        amount_cents: int,
+        operator: str,
+        op_id: Optional[str] = None,
+    ) -> dict[str, Any]:
+        return self.request_json(
+            "POST",
+            f"/receivables/{receivable_id}/receipts",
+            {
+                "operation_id": op_id or operation_id("rcpt"),
+                "channel_serial_no": channel_serial_no,
+                "amount_cents": amount_cents,
+                "operator_account_id": operator,
+            },
+        )
+
+    def get_receipt(self, receipt_id: str) -> dict[str, Any]:
+        return self.request_json("GET", f"/receipts/{receipt_id}")
+
+    def register_refund(
+        self,
+        receipt_id: str,
+        *,
+        channel_serial_no: str,
+        amount_cents: int,
+        operator: str,
+        op_id: Optional[str] = None,
+    ) -> dict[str, Any]:
+        return self.request_json(
+            "POST",
+            f"/receipts/{receipt_id}/refunds",
+            {
+                "operation_id": op_id or operation_id("rfnd"),
+                "channel_serial_no": channel_serial_no,
+                "amount_cents": amount_cents,
+                "operator_account_id": operator,
+            },
+        )
+
+    def get_refund(self, refund_id: str) -> dict[str, Any]:
+        return self.request_json("GET", f"/refunds/{refund_id}")
+
+    def register_disbursement(
+        self,
+        *,
+        account_id: str,
+        amount_cents: int,
+        operator: str,
+        note: Optional[str] = None,
+        op_id: Optional[str] = None,
+    ) -> dict[str, Any]:
+        return self.request_json(
+            "POST",
+            "/disbursements",
+            {
+                "operation_id": op_id or operation_id("dsb"),
+                "account_id": account_id,
+                "amount_cents": amount_cents,
+                "operator_account_id": operator,
+                "note": note,
+            },
+        )
+
+    def settlement_account(self, account_id: str) -> dict[str, Any]:
+        return self.request_json("GET", f"/settlement-accounts/{account_id}")
+
+    def settlement_accounts(self) -> dict[str, Any]:
+        return self.request_json("GET", "/settlement-accounts")
+
 
 def _safe_json(response: httpx.Response) -> Any:
     try:
