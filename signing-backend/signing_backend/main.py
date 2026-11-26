@@ -18,8 +18,12 @@ from .schemas import (
     AgreementCreate,
     CancelRequest,
     ChallengeRequest,
+    CompensationCreateRequest,
     DelegateRequest,
     DisbursementRequest,
+    FundContributionRequest,
+    GuaranteeBindingRequest,
+    GuaranteeFundCreateRequest,
     ReceiptRegisterRequest,
     ReceivableRegisterRequest,
     RefundRegisterRequest,
@@ -261,6 +265,206 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
     @app.get("/receivables/{receivable_id}")
     def get_receivable(receivable_id: str, conn: Any = Depends(get_db)) -> dict[str, Any]:
         return settlement.receivable_detail(conn, receivable_id)
+
+    # ------------------------------------------------------------------
+    # Guarantee funds, binding, compensation and subrogation
+    # ------------------------------------------------------------------
+
+    @app.post("/guarantee-funds")
+    @app.post("/funds")
+    def create_guarantee_fund(
+        data: GuaranteeFundCreateRequest, conn: Any = Depends(get_db)
+    ) -> Response:
+        result = idempotent(
+            conn,
+            "guarantee_fund.create",
+            data.operation_id,
+            {"body": data.model_dump()},
+            lambda c: OpResult(201, settlement.create_guarantee_fund_tx(c, data)),
+        )
+        return result.to_response()
+
+    @app.get("/guarantee-funds")
+    @app.get("/funds")
+    def list_guarantee_funds(conn: Any = Depends(get_db)) -> dict[str, Any]:
+        return settlement.list_guarantee_funds(conn)
+
+    @app.get("/guarantee-funds/{fund_id}")
+    @app.get("/funds/{fund_id}")
+    def get_guarantee_fund(fund_id: str, conn: Any = Depends(get_db)) -> dict[str, Any]:
+        return settlement.guarantee_fund_detail(conn, fund_id)
+
+    @app.get("/guarantee-funds/{fund_id}/balance")
+    @app.get("/funds/{fund_id}/balance")
+    def get_guarantee_fund_balance(
+        fund_id: str, conn: Any = Depends(get_db)
+    ) -> dict[str, Any]:
+        return settlement.guarantee_fund_view(conn, fund_id)
+
+    @app.post("/guarantee-funds/{fund_id}/contributions")
+    @app.post("/funds/{fund_id}/contributions")
+    @app.post("/guarantee-funds/{fund_id}/deposits")
+    @app.post("/funds/{fund_id}/deposits")
+    @app.post("/guarantee-funds/{fund_id}/deposit")
+    @app.post("/funds/{fund_id}/deposit")
+    @app.post("/guarantee-funds/{fund_id}/top-ups")
+    @app.post("/funds/{fund_id}/top-ups")
+    @app.post("/guarantee-funds/{fund_id}/injections")
+    @app.post("/funds/{fund_id}/injections")
+    @app.post("/guarantee-funds/{fund_id}/inject")
+    @app.post("/funds/{fund_id}/inject")
+    @app.post("/guarantee-funds/{fund_id}/capital-injections")
+    @app.post("/funds/{fund_id}/capital-injections")
+    @app.post("/guarantee-funds/{fund_id}/capital-injection")
+    @app.post("/funds/{fund_id}/capital-injection")
+    @app.post("/guarantee-funds/{fund_id}/topup")
+    @app.post("/funds/{fund_id}/topup")
+    @app.post("/guarantee-funds/{fund_id}/capital")
+    @app.post("/funds/{fund_id}/capital")
+    @app.post("/guarantee-funds/{fund_id}/balance")
+    @app.post("/funds/{fund_id}/balance")
+    @app.put("/guarantee-funds/{fund_id}/balance")
+    @app.put("/funds/{fund_id}/balance")
+    def register_fund_contribution(
+        fund_id: str, data: FundContributionRequest, conn: Any = Depends(get_db)
+    ) -> Response:
+        result = idempotent(
+            conn,
+            "guarantee_fund.contribution",
+            data.operation_id,
+            {"fund_id": fund_id, "body": data.model_dump()},
+            lambda c: OpResult(
+                201, settlement.register_fund_contribution_tx(c, fund_id, data)
+            ),
+        )
+        return result.to_response()
+
+    @app.post("/receivables/{receivable_id}/guarantee-binding")
+    @app.post("/receivables/{receivable_id}/fund-binding")
+    @app.post("/receivables/{receivable_id}/binding")
+    @app.post("/receivables/{receivable_id}/bind")
+    @app.post("/receivables/{receivable_id}/guarantee")
+    @app.post("/receivables/{receivable_id}/fund")
+    @app.post("/receivables/{receivable_id}/bind-fund")
+    @app.post("/receivables/{receivable_id}/bind-guarantee")
+    @app.put("/receivables/{receivable_id}/guarantee-binding")
+    @app.put("/receivables/{receivable_id}/fund-binding")
+    def bind_receivable_fund(
+        receivable_id: str,
+        data: GuaranteeBindingRequest,
+        conn: Any = Depends(get_db),
+    ) -> Response:
+        result = idempotent(
+            conn,
+            "guarantee_binding.bind",
+            data.operation_id,
+            {"receivable_id": receivable_id, "body": data.model_dump()},
+            lambda c: OpResult(
+                201, settlement.bind_receivable_fund_tx(c, receivable_id, data)
+            ),
+        )
+        return result.to_response()
+
+    @app.post("/receivables/{receivable_id}/compensations")
+    @app.post("/receivables/{receivable_id}/compensation")
+    @app.post("/receivables/{receivable_id}/compensate")
+    @app.post("/receivables/{receivable_id}/guarantee-compensations")
+    @app.post("/receivables/{receivable_id}/guarantee-payments")
+    @app.post("/receivables/{receivable_id}/advances")
+    @app.post("/receivables/{receivable_id}/advance")
+    def register_receivable_compensation(
+        receivable_id: str,
+        data: CompensationCreateRequest,
+        conn: Any = Depends(get_db),
+    ) -> Response:
+        result = idempotent(
+            conn,
+            "guarantee_compensation.register",
+            data.operation_id,
+            {"receivable_id": receivable_id, "body": data.model_dump()},
+            lambda c: OpResult(
+                201, settlement.register_compensation_tx(c, receivable_id, data)
+            ),
+        )
+        return result.to_response()
+
+    @app.post("/compensations")
+    @app.post("/compensation")
+    @app.post("/guarantee-compensations")
+    @app.post("/guarantee-payments")
+    @app.post("/advances")
+    @app.post("/advance")
+    def register_compensation(
+        data: CompensationCreateRequest, conn: Any = Depends(get_db)
+    ) -> Response:
+        result = idempotent(
+            conn,
+            "guarantee_compensation.register",
+            data.operation_id,
+            {"body": data.model_dump()},
+            lambda c: OpResult(
+                201, settlement.register_compensation_tx(c, data.receivable_id or "", data)
+            ),
+        )
+        return result.to_response()
+
+    @app.post("/funds/{fund_id}/compensations")
+    @app.post("/guarantee-funds/{fund_id}/compensations")
+    @app.post("/funds/{fund_id}/advances")
+    @app.post("/guarantee-funds/{fund_id}/advances")
+    def register_fund_compensation(
+        fund_id: str,
+        data: CompensationCreateRequest,
+        conn: Any = Depends(get_db),
+    ) -> Response:
+        if data.fund_id and data.fund_id != fund_id:
+            raise ApiError(
+                409,
+                "COMPENSATION_FUND_MISMATCH",
+                "The path fund_id and body fund_id must match.",
+                {"path_fund_id": fund_id, "body_fund_id": data.fund_id},
+            )
+        scoped_data = data.model_copy(update={"fund_id": fund_id})
+        result = idempotent(
+            conn,
+            "guarantee_compensation.register",
+            data.operation_id,
+            {"fund_id": fund_id, "body": scoped_data.model_dump()},
+            lambda c: OpResult(
+                201,
+                settlement.register_compensation_tx(
+                    c, scoped_data.receivable_id or "", scoped_data
+                ),
+            ),
+        )
+        return result.to_response()
+
+    @app.get("/compensations")
+    @app.get("/guarantee-compensations")
+    @app.get("/guarantee-payments")
+    def list_compensations(
+        receivable_id: str | None = None,
+        fund_id: str | None = None,
+        conn: Any = Depends(get_db),
+    ) -> dict[str, Any]:
+        return settlement.list_compensations(
+            conn, receivable_id=receivable_id, fund_id=fund_id
+        )
+
+    @app.get("/compensations/{compensation_id}")
+    @app.get("/guarantee-compensations/{compensation_id}")
+    @app.get("/guarantee-payments/{compensation_id}")
+    def get_compensation(
+        compensation_id: str, conn: Any = Depends(get_db)
+    ) -> dict[str, Any]:
+        return settlement.compensation_view(conn, compensation_id)
+
+    @app.get("/guarantee-bindings/{binding_id}")
+    @app.get("/fund-bindings/{binding_id}")
+    def get_guarantee_binding(
+        binding_id: str, conn: Any = Depends(get_db)
+    ) -> dict[str, Any]:
+        return settlement.guarantee_binding_view(conn, binding_id)
 
     @app.post("/receivables/{receivable_id}/transfers")
     def apply_transfer(

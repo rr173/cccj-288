@@ -288,10 +288,13 @@ CREATE TABLE IF NOT EXISTS settlement_ledger (
     event_type              TEXT NOT NULL CHECK (event_type IN (
                                 'allocation','allocation_deduction_offset',
                                 'refund_clawback_balance','refund_clawback_deduction',
-                                'disbursement'
+                                'disbursement',
+                                'guarantee_compensation_credit',
+                                'guarantee_compensation_offset'
                             )),
     ref_type                TEXT NOT NULL CHECK (ref_type IN (
-                                'receipt_allocation','refund_reversal','disbursement'
+                                'receipt_allocation','refund_reversal','disbursement',
+                                'guarantee_compensation'
                             )),
     ref_id                  TEXT NOT NULL,
     delta_available         INTEGER NOT NULL,
@@ -302,6 +305,139 @@ CREATE TABLE IF NOT EXISTS settlement_ledger (
 );
 
 CREATE INDEX IF NOT EXISTS idx_ledger_account ON settlement_ledger(account_id);
+
+-- ---------------------------------------------------------------------------
+-- Guarantee funds, compensation batches and subrogation recoveries
+--
+-- A fund can advance money for many receivables.  Cents are simulated only.
+-- available_cents can be used for new compensation; gap_cents is the
+-- unrecovered fund deficit caused by a refund after funds were reused.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS guarantee_funds (
+    fund_id                       TEXT PRIMARY KEY,
+    fund_no                       TEXT NOT NULL UNIQUE,
+    name                          TEXT,
+    available_cents               INTEGER NOT NULL DEFAULT 0 CHECK (available_cents >= 0),
+    gap_cents                     INTEGER NOT NULL DEFAULT 0 CHECK (gap_cents >= 0),
+    total_contribution_cents      INTEGER NOT NULL DEFAULT 0 CHECK (total_contribution_cents >= 0),
+    total_compensation_cents      INTEGER NOT NULL DEFAULT 0 CHECK (total_compensation_cents >= 0),
+    total_recovery_cents          INTEGER NOT NULL DEFAULT 0 CHECK (total_recovery_cents >= 0),
+    total_refund_clawback_cents   INTEGER NOT NULL DEFAULT 0 CHECK (total_refund_clawback_cents >= 0),
+    operator_account_id           TEXT,
+    created_at                    TEXT NOT NULL,
+    updated_at                    TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS fund_contributions (
+    contribution_id        TEXT PRIMARY KEY,
+    fund_id                TEXT NOT NULL REFERENCES guarantee_funds(fund_id),
+    amount_cents           INTEGER NOT NULL CHECK (amount_cents > 0),
+    note                   TEXT,
+    operator_account_id    TEXT,
+    created_at             TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_fund_contributions_fund ON fund_contributions(fund_id);
+
+-- At most one guarantee fund binding per receivable.  The limit applies to
+-- outstanding (not yet recovered) compensation principal for this receivable,
+-- not to cumulative compensation volume.
+CREATE TABLE IF NOT EXISTS receivable_fund_bindings (
+    binding_id                  TEXT PRIMARY KEY,
+    receivable_id               TEXT NOT NULL UNIQUE REFERENCES receivables(receivable_id),
+    fund_id                     TEXT NOT NULL REFERENCES guarantee_funds(fund_id),
+    compensation_limit_cents    INTEGER NOT NULL CHECK (compensation_limit_cents > 0),
+    operator_account_id         TEXT,
+    created_at                  TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_bindings_fund ON receivable_fund_bindings(fund_id);
+
+-- One compensation operation is one FIFO recovery/subrogation batch.
+CREATE TABLE IF NOT EXISTS guarantee_compensations (
+    compensation_id             TEXT PRIMARY KEY,
+    receivable_id               TEXT NOT NULL REFERENCES receivables(receivable_id),
+    fund_id                     TEXT NOT NULL REFERENCES guarantee_funds(fund_id),
+    creditor_account_id         TEXT NOT NULL,
+    seq                         INTEGER NOT NULL,
+    amount_cents                INTEGER NOT NULL CHECK (amount_cents > 0),
+    recovered_cents             INTEGER NOT NULL DEFAULT 0
+                                    CHECK (recovered_cents >= 0 AND recovered_cents <= amount_cents),
+    deduction_offset_cents      INTEGER NOT NULL DEFAULT 0 CHECK (deduction_offset_cents >= 0),
+    net_credited_cents          INTEGER NOT NULL DEFAULT 0 CHECK (net_credited_cents >= 0),
+    operator_account_id         TEXT,
+    created_at                  TEXT NOT NULL,
+    UNIQUE (receivable_id, seq)
+);
+
+CREATE INDEX IF NOT EXISTS idx_compensations_receivable_seq
+    ON guarantee_compensations(receivable_id, seq);
+CREATE INDEX IF NOT EXISTS idx_compensations_fund ON guarantee_compensations(fund_id);
+CREATE INDEX IF NOT EXISTS idx_compensations_creditor
+    ON guarantee_compensations(creditor_account_id);
+
+-- The fund slice of one debtor receipt.  Ordinary creditor slices continue to
+-- live in receipt_allocations.  Recovery is allocated to batches FIFO by
+-- compensation sequence.
+CREATE TABLE IF NOT EXISTS receipt_guarantee_allocations (
+    allocation_id               TEXT PRIMARY KEY,
+    receipt_id                  TEXT NOT NULL REFERENCES receipts(receipt_id),
+    compensation_id             TEXT NOT NULL REFERENCES guarantee_compensations(compensation_id),
+    fund_id                     TEXT NOT NULL REFERENCES guarantee_funds(fund_id),
+    position                    INTEGER NOT NULL,
+    amount_cents                INTEGER NOT NULL CHECK (amount_cents > 0),
+    reversed_cents              INTEGER NOT NULL DEFAULT 0 CHECK (reversed_cents >= 0),
+    gap_offset_cents            INTEGER NOT NULL DEFAULT 0 CHECK (gap_offset_cents >= 0),
+    available_credited_cents    INTEGER NOT NULL DEFAULT 0 CHECK (available_credited_cents >= 0),
+    created_at                  TEXT NOT NULL,
+    UNIQUE (receipt_id, compensation_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_guarantee_allocations_receipt
+    ON receipt_guarantee_allocations(receipt_id);
+CREATE INDEX IF NOT EXISTS idx_guarantee_allocations_compensation
+    ON receipt_guarantee_allocations(compensation_id);
+
+-- Guarantee/fund slice reversal lines for a refund, allocated in reverse FIFO
+-- order of the batches repaid by that particular original receipt.
+CREATE TABLE IF NOT EXISTS refund_guarantee_reversals (
+    reversal_id                     TEXT PRIMARY KEY,
+    refund_id                       TEXT NOT NULL REFERENCES refunds(refund_id),
+    guarantee_allocation_id         TEXT NOT NULL REFERENCES receipt_guarantee_allocations(allocation_id),
+    compensation_id                 TEXT NOT NULL REFERENCES guarantee_compensations(compensation_id),
+    fund_id                         TEXT NOT NULL REFERENCES guarantee_funds(fund_id),
+    position                        INTEGER NOT NULL,
+    amount_cents                    INTEGER NOT NULL CHECK (amount_cents > 0),
+    deducted_available_cents        INTEGER NOT NULL CHECK (deducted_available_cents >= 0),
+    gap_added_cents                 INTEGER NOT NULL CHECK (gap_added_cents >= 0),
+    created_at                      TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_guarantee_reversals_refund
+    ON refund_guarantee_reversals(refund_id);
+
+CREATE TABLE IF NOT EXISTS fund_ledger (
+    ledger_id               TEXT PRIMARY KEY,
+    fund_id                 TEXT NOT NULL REFERENCES guarantee_funds(fund_id),
+    event_type              TEXT NOT NULL CHECK (event_type IN (
+                                'contribution','recovery','compensation',
+                                'refund_clawback'
+                            )),
+    ref_type                TEXT NOT NULL CHECK (ref_type IN (
+                                'fund_contribution','receipt_guarantee_allocation',
+                                'guarantee_compensation','refund_guarantee_reversal'
+                            )),
+    ref_id                  TEXT NOT NULL,
+    gross_cents             INTEGER NOT NULL CHECK (gross_cents >= 0),
+    delta_available         INTEGER NOT NULL,
+    delta_gap               INTEGER NOT NULL,
+    available_after         INTEGER NOT NULL CHECK (available_after >= 0),
+    gap_after               INTEGER NOT NULL CHECK (gap_after >= 0),
+    created_at              TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_fund_ledger_fund ON fund_ledger(fund_id);
 """
 
 
@@ -327,6 +463,72 @@ def connect(database_path: str | Path) -> sqlite3.Connection:
 
 def init_db(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA)
+    _migrate_legacy_settlement_ledger(conn)
+
+
+_LEDGER_EXPANDED_DDL = """
+CREATE TABLE settlement_ledger_next (
+    ledger_id               TEXT PRIMARY KEY,
+    account_id              TEXT NOT NULL,
+    event_type              TEXT NOT NULL CHECK (event_type IN (
+                                'allocation','allocation_deduction_offset',
+                                'refund_clawback_balance','refund_clawback_deduction',
+                                'disbursement',
+                                'guarantee_compensation_credit',
+                                'guarantee_compensation_offset'
+                            )),
+    ref_type                TEXT NOT NULL CHECK (ref_type IN (
+                                'receipt_allocation','refund_reversal','disbursement',
+                                'guarantee_compensation'
+                            )),
+    ref_id                  TEXT NOT NULL,
+    delta_available         INTEGER NOT NULL,
+    delta_deduction         INTEGER NOT NULL,
+    balance_after           INTEGER NOT NULL,
+    deduction_after         INTEGER NOT NULL,
+    created_at              TEXT NOT NULL
+)
+"""
+
+
+def _migrate_legacy_settlement_ledger(conn: sqlite3.Connection) -> None:
+    """Rebuild the old ledger CHECK table once to permit guarantee event types."""
+    row = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'settlement_ledger'"
+    ).fetchone()
+    if row is None or "guarantee_compensation_credit" in (row["sql"] or ""):
+        return
+
+    with immediate_transaction(conn):
+        # Re-check after acquiring the write lock: another process may have
+        # completed the same startup migration while this one was waiting.
+        current = conn.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'settlement_ledger'"
+        ).fetchone()
+        if current is None or "guarantee_compensation_credit" in (current["sql"] or ""):
+            return
+
+        conn.execute("ALTER TABLE settlement_ledger RENAME TO settlement_ledger_legacy")
+        conn.execute(_LEDGER_EXPANDED_DDL)
+        conn.execute(
+            """
+            INSERT INTO settlement_ledger_next (
+                ledger_id, account_id, event_type, ref_type, ref_id,
+                delta_available, delta_deduction, balance_after,
+                deduction_after, created_at
+            )
+            SELECT ledger_id, account_id, event_type, ref_type, ref_id,
+                   delta_available, delta_deduction, balance_after,
+                   deduction_after, created_at
+            FROM settlement_ledger_legacy
+            """
+        )
+        conn.execute("DROP TABLE settlement_ledger_legacy")
+        conn.execute("ALTER TABLE settlement_ledger_next RENAME TO settlement_ledger")
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_ledger_account "
+            "ON settlement_ledger(account_id)"
+        )
 
 
 @contextmanager

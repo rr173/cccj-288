@@ -41,6 +41,7 @@ tests/
   test_backend.py  # 阶段、委托、旧挑战、去重、重启、一签一席、正文改版
   test_race.py     # 取消与最后签名的并发竞争
   test_settlement.py  # 分款取整、转让终止/生效、退票冲回、待扣回、并发、重启
+  test_guarantee_fund.py # 担保基金、代偿批次、追偿顺序、退票反冲、缺口、限额与并发
 run_demo.sh             # 自动起本机 uvicorn、跑签署 HTTP 演示、再独立验签
 run_settlement_demo.sh  # 自动起本机 uvicorn、跑应收款结算 HTTP 演示
 verify_certificate.py
@@ -412,7 +413,7 @@ GET /agreements/{agreement_id}/certificate
 ### 领域模型与不变量
 
 - **应收款 `receivables`**：运营在一份**已完成（completed）**的协议下登记，含应收编号、债务人、原债权人、整数分本金；`remaining_cents` 是当前未收回本金。
-- **持有份额 `receivable_holdings`**：每个债权人对该笔应收当前持有的未收本金。转让在份额之间移动，到账减少份额，退票按原收款人恢复份额。恒等式：`remaining_cents = SUM(held_cents)`。
+- **持有份额 `receivable_holdings`**：每个债权人对该笔应收当前持有的**普通未收本金**。转让在份额之间移动，普通到账减少份额，退票按原收款人恢复份额。未绑定代偿时恒等式为 `remaining_cents = SUM(held_cents)`；发生代偿后为 `remaining_cents = SUM(普通 holdings) + SUM(代偿批次未收回余额)`。
 - **转让申请 `transfer_applications`**：状态 `pending / effective / terminated`，绑定本笔应收、转出人、受让人、金额和一份自动生成的转让协议。
 - **到账 `receipts` 与分款行 `receipt_allocations`**：一笔到账的不可变分款明细，记录每人毛份额、已冲回额、抵扣待扣回额和净入账额。
 - **退票 `refunds` 与冲回行 `refund_reversals`**：可对一笔原到账分次退票，冲回行记录从可划余额扣了多少、记为待扣回多少。
@@ -529,24 +530,169 @@ POST /disbursements
 
 划款不能超过账户当前可划余额，否则 `INSUFFICIENT_AVAILABLE_BALANCE`；划款成功生成不可变划款记录并减少可划余额。
 
+### 6. 担保基金、代偿与追偿
+
+担保基金是纯整数分模拟台账，不连接银行或真实支付渠道。一个基金可以为多笔应收垫款；一笔应收只能绑定一个基金。
+
+#### 6.1 创建基金与登记注资
+
+```http
+POST /guarantee-funds
+```
+
+```json
+{
+  "operation_id": "fund-create-1",
+  "fund_id": "fund_demo",
+  "name": "小微担保基金",
+  "operator_account_id": "operator"
+}
+```
+
+`fund_id` 可省略，由服务端生成；`/funds` 是同义路径。随后登记注资：
+
+```http
+POST /guarantee-funds/fund_demo/contributions
+```
+
+```json
+{
+  "operation_id": "fund-contrib-1",
+  "amount_cents": 100000,
+  "operator_account_id": "operator",
+  "note": "初始注资"
+}
+```
+
+基金详情中的关键字段：
+
+- `available_cents`：当前可用于新增代偿的资金；
+- `gap_cents`：退票冲回基金但基金当前资金不足形成的缺口；
+- `net_position_cents = available_cents - gap_cents`；
+- 累计注资、代偿、追偿到账、退票冲回以及完整 `fund_ledger`。
+
+后续注资和追偿到账都会**先补 `gap_cents`**，剩余才增加 `available_cents`；缺口未补足前新增代偿返回 `GUARANTEE_FUND_GAP_OUTSTANDING`。
+
+#### 6.2 为应收绑定基金和固定限额
+
+```http
+POST /receivables/{receivable_id}/guarantee-binding
+```
+
+```json
+{
+  "operation_id": "bind-1",
+  "fund_id": "fund_demo",
+  "limit_cents": 30000,
+  "operator_account_id": "operator"
+}
+```
+
+`limit_cents` 也可写作 `compensation_limit_cents`。限额约束该应收**当前尚未收回的代偿批次本金合计**，不是累计代偿发生额；追偿到账恢复额度，退票恢复批次后会重新占用额度。一笔应收重复绑定返回 `RECEIVABLE_FUND_ALREADY_BOUND`。
+
+#### 6.3 登记代偿，生成追偿批次
+
+```http
+POST /receivables/{receivable_id}/compensations
+```
+
+```json
+{
+  "operation_id": "comp-1",
+  "creditor_account_id": "alice",
+  "amount_cents": 3000,
+  "operator_account_id": "operator"
+}
+```
+
+金额必须同时满足：
+
+1. 不超过该债权人当前**普通未收本金**（否则 `COMPENSATION_EXCEEDS_ORDINARY_PRINCIPAL`）；
+2. 不超过该应收限额减未收回代偿本金后的额度（否则 `COMPENSATION_LIMIT_EXCEEDED`）；
+3. 不超过基金 `available_cents`，且基金没有未补足缺口（否则 `GUARANTEE_FUND_INSUFFICIENT` / `GUARANTEE_FUND_GAP_OUTSTANDING`）。
+
+代偿会在同一事务内：
+
+- 减少该债权人的普通 holdings；
+- 新增按代偿先后排序的追偿批次 `guarantee_compensations`；
+- 从基金 `available_cents` 扣款；
+- 把等额款项记入债权人结算账户，仍按“先抵扣 `pending_deduction_cents`，净额再增加 `available_cents`”处理。
+
+代偿**不是债务人还款**：`receivables.remaining_cents` 不变。应收详情额外给出 `ordinary_remaining_cents`、`guarantee_outstanding_cents` 和 `compensation_batches`（每批含 `amount_cents`、`recovered_cents`、`outstanding_cents`）。
+
+原有转让接口不变，但 holdings 在代偿时已经只代表普通未收本金，因此转让天然不能转走属于基金的追偿权；批次上的原受偿债权人仅保留审计含义。
+
+#### 6.4 债务人到账：先追偿批次，再普通分款
+
+仍使用原接口：
+
+```http
+POST /receivables/{receivable_id}/receipts
+```
+
+新规则仅适用于绑定后产生、且实际含基金批次分配的到账：
+
+1. 按代偿批次 `seq` 从先到后偿还未收回批次；
+2. 各批次金额进入其所属基金；若基金有缺口，先补缺口；
+3. 到账金额的剩余部分才按原最大余数法分给当前普通债权人。
+
+`GET /receipts/{receipt_id}` 同时返回：
+
+- `allocations`：普通债权人分款；
+- `guarantee_allocations` / `fund_allocations`：分到哪些基金代偿批次，以及补缺口/增加可用资金的金额。
+
+#### 6.5 退票：先冲普通，再反序冲基金批次
+
+仍使用：
+
+```http
+POST /receipts/{receipt_id}/refunds
+```
+
+对含基金分配的新到账，退票严格按以下顺序撤销**原到账的实际分配**：
+
+1. 先冲普通分款；普通部分沿用原规则（原分款金额降序、同额账号升序），并恢复原收款人的普通本金、扣回其结算账户；
+2. 普通部分不足后，再按**该笔到账偿还批次的反顺序**冲回基金分配；
+3. 每冲回一笔基金分配，就恢复对应代偿批次的追偿本金，并从该基金当前资金扣款。
+
+如果基金当前可用资金不足，不撤销已经发生的其他应收代偿，而是把不足额记为该基金的 `gap_cents`。若退票恢复批次导致某应收代偿余额超过绑定限额，已发生批次和退票全部保留；绑定视图会显示负的 `limit_headroom_cents` 和正的 `over_limit_cents`，此后任何新增正额代偿都被拒绝，直到新的追偿款把未收回代偿余额降到限额以内。
+
+绑定前的旧到账没有 `receipt_guarantee_allocations` 记录，其退票继续走原有普通分款冲回逻辑；未绑定基金的应收完全保持原行为。
+
 ### 查询接口
 
 | 方法与路径 | 内容 |
 | --- | --- |
-| `GET /receivables` / `GET /receivables/{id}` | 应收列表/详情，含各债权人**当下未收本金** holdings、转让与到账 id |
+| `GET /receivables` / `GET /receivables/{id}` | 应收列表/详情，含普通未收本金、普通 holdings、担保绑定、各代偿/追偿批次余额、转让与到账 id |
+| `POST /guarantee-funds` / `GET /guarantee-funds` / `GET /guarantee-funds/{id}` | 创建/列表/详情基金；详情含可用资金、缺口、累计金额、注资记录和基金流水（`/funds` 为别名） |
+| `POST /guarantee-funds/{id}/contributions` | 登记注资；有缺口时先补缺口（另有 `/top-ups`、`/capital` 别名） |
+| `POST /receivables/{id}/guarantee-binding` | 绑定唯一基金和固定代偿限额（`/fund-binding` 为别名） |
+| `POST /receivables/{id}/compensations` / `GET /compensations` / `GET /compensations/{id}` | 登记代偿、查询批次；列表支持 `?receivable_id=...&fund_id=...` |
 | `GET /transfers?receivable_id=...` / `GET /transfers/{id}` | 转让申请及绑定协议签署进度、生效/终止状态 |
-| `GET /receipts/{id}` | 每笔到账的**分款明细**、每行已冲回/未冲回、关联退票 |
-| `GET /refunds/{id}` | 每笔退票的**冲回明细**、余额扣减与待扣回拆分 |
+| `GET /receipts/{id}` | 每笔到账的普通分款明细、基金/批次分配、每行已冲回/未冲回、关联退票 |
+| `GET /refunds/{id}` | 每笔退票的普通冲回、基金批次反序冲回、余额扣减/待扣回/基金缺口拆分 |
 | `GET /settlement-accounts` / `GET /settlement-accounts/{id}` | 可划余额、待扣回、累计分款/冲回/已划、**已划记录**与完整 ledger 流水 |
 
 ### 幂等、并发与重启
 
 - 每个写接口都以 `(scope, operation_id)` 持久化请求指纹、状态码和响应体；同 ID 同内容重放首次结果，同 ID 换内容返回 `IDEMPOTENCY_REQUEST_CONFLICT`。到账/退票另有渠道流水号唯一约束兜底。
-- 到账、退票、转让确认、划款都在单条 `BEGIN IMMEDIATE` 事务内完成全部余额/份额/流水改动，SQLite 写锁把并发事务串行化，因此结果等价于某个串行顺序，任何失败整体回滚，不会只更新一边。
+- 到账、退票、转让确认、划款、基金注资、绑定和代偿都在单条 `BEGIN IMMEDIATE` 事务内完成全部基金、应收、批次、结算账户与流水改动，SQLite 写锁把并发事务串行化，因此新操作与原结算操作并发时结果仍等价于某个串行顺序，任何失败整体回滚，不会只更新一边。
 - 转让“不足额终止”是一个**终局业务决定**：服务在同一事务内把申请置为 `terminated` 并以 409 返回（而不是抛错触发回滚），保证终止状态可靠落库且重放一致。
 - 所有状态和 ledger 都在 SQLite 中，重启后状态、流水、幂等记录仍可核对；测试会重建 app 验证重放与流水账重算。
 
 ### 结算演示与测试
+
+只运行担保基金专项测试：
+
+```bash
+python3 -m pytest tests/test_guarantee_fund.py -q
+```
+
+运行全部测试：
+
+```bash
+python3 -m pytest -q
+```
 
 ```bash
 ./run_settlement_demo.sh
@@ -560,7 +706,7 @@ POST /disbursements
 python3 -m pytest -q
 ```
 
-覆盖（共 23 个测试，含并发多轮与重启）：
+覆盖（共 33 个测试，含担保基金专项、并发多轮与重启）：
 
 - 两阶段门和完整凭证验证；
 - 委托、连续委托、环拒绝、越权委托拒绝；
@@ -579,6 +725,12 @@ python3 -m pytest -q
 - 待扣回：可划余额不足转欠额、新分款先抵扣、已划记录不改写、划款不得超可划余额；
 - 渠道流水号换内容拒绝、相同请求重试不重复记账；
 - 重启后转让终止状态、余额与流水账仍可核对（ledger 重算余额、本金/分款/冲回守恒）；
+- 担保基金：创建/注资、唯一绑定、三重代偿限额、结算账户先抵待扣回、代偿不减少应收总未收额；
+- 追偿到账按批次先后分配给基金，剩余金额才按原规则分给普通债权人；
+- 退票先冲普通分款、再按该到账批次反序冲基金并恢复批次本金；基金不足记缺口，后续注资/追偿先补缺口；
+- 退票导致超限额时保留历史并阻止新增代偿，追偿恢复额度后可继续；转让只能移动普通未收本金；
+- 绑定前旧到账和未绑定应收保持原分款/退票规则；旧 `settlement_ledger` CHECK 表会在启动时幂等迁移；
+- 担保基金重启重放不重复注资/代偿，20 并发代偿不会突破基金可用资金；
 - 到账/退票/转让确认/划款并发等价于某串行顺序，无半写；同操作 ID 高并发只入账一次。
 
 ## 生产化前仍需补充的事项
